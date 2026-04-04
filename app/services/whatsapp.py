@@ -38,8 +38,7 @@ def send_whatsapp(db: Session, to_whatsapp: str, message: str) -> bool:
     headers = {"apikey": cfg["key"], "Content-Type": "application/json"}
     payload = {
         "number": phone,
-        "textMessage": {"text": message},
-        "options": {"delay": 1200, "presence": "composing"},
+        "text": message,
     }
     try:
         resp = httpx.post(url, json=payload, headers=headers, timeout=10)
