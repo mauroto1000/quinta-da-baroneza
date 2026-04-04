@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Dashboard – Admin{% endblock %}
+{% block content %}
+<h4 class="mb-4"><i class="bi bi-speedometer2 me-2 text-success"></i>Dashboard</h4>
+
+<div class="row g-3 mb-4">
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center">
+      <div class="card-body">
+        <i class="bi bi-people-fill text-success fs-3"></i>
+        <div class="fs-2 fw-bold">{{ total_players }}</div>
+        <div class="text-muted small">Jogadores</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center">
+      <div class="card-body">
+        <i class="bi bi-diagram-3-fill text-primary fs-3"></i>
+        <div class="fs-2 fw-bold">{{ upcoming_groups }}</div>
+        <div class="text-muted small">Grupos Futuros</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-md-3">
+    <div class="card border-0 shadow-sm text-center">
+      <div class="card-body">
+        <i class="bi bi-hourglass-split text-warning fs-3"></i>
+        <div class="fs-2 fw-bold">{{ pending_requests }}</div>
+        <div class="text-muted small">Solic. Pendentes</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<h5 class="mb-3">Ocupação — Próximos 7 dias</h5>
+<div class="table-responsive">
+  <table class="table table-hover align-middle">
+    <thead class="table-light">
+      <tr>
+        <th>Data</th>
+        <th>Horários</th>
+        <th>Grupos</th>
+        <th>Ocupação</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for day in occupancy %}
+      <tr>
+        <td>{{ day.date.strftime('%a, %d/%m') }}</td>
+        <td>{{ day.slots }}</td>
+        <td>{{ day.groups }}</td>
+        <td>
+          {% if day.slots > 0 %}
+          <div class="progress" style="height:10px;width:100px">
+            <div class="progress-bar bg-success" style="width:{{ [(day.groups / day.slots * 100)|int, 100]|min }}%"></div>
+          </div>
+          {% else %}
+          <span class="text-muted small">—</span>
+          {% endif %}
+        </td>
+        <td>
+          <a href="/schedule/day/{{ day.date.isoformat() }}" class="btn btn-sm btn-outline-secondary">Ver</a>
+          <a href="/admin/reports?report_date={{ day.date.isoformat() }}" class="btn btn-sm btn-outline-primary">Relatório</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

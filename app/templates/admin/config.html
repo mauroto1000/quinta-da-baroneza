@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Configurações – Admin{% endblock %}
+{% block content %}
+<h4 class="mb-4"><i class="bi bi-sliders me-2 text-success"></i>Configurações do Sistema</h4>
+
+{% if success %}
+<div class="alert alert-success"><i class="bi bi-check-circle me-1"></i>Configurações salvas com sucesso!</div>
+{% endif %}
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-4">
+    <form method="post">
+
+      <h6 class="text-muted text-uppercase small mb-3">Regras de Agendamento</h6>
+      <div class="row g-3 mb-4">
+        <div class="col-md-4">
+          <label class="form-label">Janela de agendamento (dias)</label>
+          <input type="number" name="booking_window_days" class="form-control" min="1" max="60"
+            value="{{ configs.get('booking_window_days').value if configs.get('booking_window_days') else '14' }}">
+          <small class="text-muted">Quantos dias à frente o jogador pode agendar.</small>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Timeout de resposta (horas)</label>
+          <input type="number" name="request_timeout_hours" class="form-control" min="1" max="48"
+            value="{{ configs.get('request_timeout_hours').value if configs.get('request_timeout_hours') else '1' }}">
+          <small class="text-muted">Prazo para o responsável aceitar/recusar.</small>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Prazo mínimo de cancelamento (horas)</label>
+          <input type="number" name="cancel_deadline_hours" class="form-control" min="0" max="168"
+            value="{{ configs.get('cancel_deadline_hours').value if configs.get('cancel_deadline_hours') else '24' }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Máximo de grupos por horário</label>
+          <input type="number" name="max_groups_per_slot" class="form-control" min="1" max="20"
+            value="{{ configs.get('max_groups_per_slot').value if configs.get('max_groups_per_slot') else '6' }}">
+        </div>
+      </div>
+
+      <hr>
+      <h6 class="text-muted text-uppercase small mb-3">Configurações Gerais</h6>
+      <div class="row g-3 mb-4">
+        <div class="col-md-6">
+          <label class="form-label">Nome do Clube</label>
+          <input type="text" name="club_name" class="form-control"
+            value="{{ configs.get('club_name').value if configs.get('club_name') else 'Quinta da Baroneza Golfe Clube' }}">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">URL base da aplicação</label>
+          <input type="url" name="app_base_url" class="form-control"
+            placeholder="https://meusite.pythonanywhere.com"
+            value="{{ configs.get('app_base_url').value if configs.get('app_base_url') else '' }}">
+          <small class="text-muted">Usada nos links enviados via WhatsApp.</small>
+        </div>
+      </div>
+
+      <hr>
+      <h6 class="text-muted text-uppercase small mb-3">Evolution API (WhatsApp)</h6>
+      <div class="row g-3 mb-4">
+        <div class="col-md-12">
+          <label class="form-label">URL da Evolution API</label>
+          <input type="url" name="evolution_api_url" class="form-control"
+            placeholder="https://sua-evolution-api.com"
+            value="{{ configs.get('evolution_api_url').value if configs.get('evolution_api_url') else '' }}">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">API Key</label>
+          <input type="password" name="evolution_api_key" class="form-control"
+            value="{{ configs.get('evolution_api_key').value if configs.get('evolution_api_key') else '' }}">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label">Nome da Instância</label>
+          <input type="text" name="evolution_instance" class="form-control"
+            placeholder="quinta-baroneza"
+            value="{{ configs.get('evolution_instance').value if configs.get('evolution_instance') else '' }}">
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-success">
+        <i class="bi bi-save me-1"></i>Salvar Configurações
+      </button>
+    </form>
+  </div>
+</div>
+{% endblock %}

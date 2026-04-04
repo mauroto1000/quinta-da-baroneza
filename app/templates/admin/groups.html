@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Grupos – Admin{% endblock %}
+{% block content %}
+<h4 class="mb-4"><i class="bi bi-diagram-3 me-2 text-success"></i>Grupos (próximas saídas)</h4>
+
+{% if not groups %}
+<div class="alert alert-info"><i class="bi bi-info-circle me-1"></i>Nenhum grupo futuro encontrado.</div>
+{% endif %}
+
+{% for group in groups %}
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center">
+    <div>
+      <strong>{{ group.tee_slot.slot_datetime | dt }}</strong>
+      <span class="badge bg-success ms-1">Tee #{{ group.tee_slot.tee_number.value }}</span>
+      <span class="badge ms-1
+        {% if group.status.value == 'open' %}bg-success
+        {% elif group.status.value == 'mixed' %}bg-warning text-dark
+        {% elif group.status.value == 'closed' %}bg-secondary
+        {% else %}bg-danger{% endif %}">
+        {% if group.status.value == 'open' %}Aberto
+        {% elif group.status.value == 'mixed' %}Misto
+        {% elif group.status.value == 'closed' %}Fechado
+        {% else %}Completo{% endif %}
+      </span>
+    </div>
+    <div class="text-muted small">Grupo #{{ group.id }}</div>
+  </div>
+  <div class="card-body py-2">
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+      {% for m in group.members %}
+        {% if m.status.value == 'accepted' %}
+        <span class="badge bg-light text-dark border">
+          <i class="bi bi-person me-1"></i>{{ m.user.full_name }}
+          {% if m.user_id == group.leader_id %}<i class="bi bi-star-fill text-success ms-1"></i>{% endif %}
+        </span>
+        {% endif %}
+      {% endfor %}
+      <small class="text-muted ms-auto">{{ group.current_size }}/{{ group.max_players }}</small>
+    </div>
+    {% if group.notes %}
+    <small class="text-muted mt-1 d-block"><i class="bi bi-chat-text me-1"></i>{{ group.notes }}</small>
+    {% endif %}
+  </div>
+</div>
+{% endfor %}
+{% endblock %}

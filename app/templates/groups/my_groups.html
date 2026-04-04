@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Meus Grupos{% endblock %}
+{% block content %}
+<h4 class="mb-4"><i class="bi bi-people me-2 text-success"></i>Meus Grupos</h4>
+
+{% if not memberships %}
+<div class="alert alert-info">
+  <i class="bi bi-info-circle me-1"></i>Você não está em nenhum grupo ainda.
+  <a href="/schedule" class="alert-link ms-1">Ver agenda</a>
+</div>
+{% endif %}
+
+{% set upcoming_list = [] %}
+{% set past_list = [] %}
+{% for m in memberships %}
+  {% if m.group.tee_slot.slot_datetime > now %}
+    {% set _ = upcoming_list.append(m) %}
+  {% else %}
+    {% set _ = past_list.append(m) %}
+  {% endif %}
+{% endfor %}
+
+{% if upcoming_list %}
+<h5 class="text-muted mb-3">Próximas saídas</h5>
+<div class="row g-3 mb-4">
+  {% for m in upcoming_list %}
+  {% set group = m.group %}
+  {% set slot = group.tee_slot %}
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+          <div>
+            <span class="fs-5 fw-bold">{{ slot.slot_datetime | time }}</span>
+            <span class="badge bg-success ms-1">Tee #{{ slot.tee_number.value }}</span>
+          </div>
+          {% if group.leader_id == user.id %}
+            <span class="badge bg-warning text-dark">Responsável</span>
+          {% endif %}
+        </div>
+        <div class="text-muted mb-2">{{ slot.slot_datetime | date }}</div>
+        <div class="mb-2">
+          {% for mem in group.members %}
+            {% if mem.status.value == 'accepted' %}
+            <span class="badge bg-light text-dark border me-1">
+              {{ mem.user.full_name.split()[0] }}
+            </span>
+            {% endif %}
+          {% endfor %}
+        </div>
+        <a href="/groups/{{ group.id }}" class="btn btn-sm btn-outline-success">
+          <i class="bi bi-eye me-1"></i>Ver grupo
+        </a>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+{% if past_list %}
+<h5 class="text-muted mb-3">Histórico</h5>
+<div class="row g-3">
+  {% for m in past_list %}
+  {% set group = m.group %}
+  {% set slot = group.tee_slot %}
+  <div class="col-md-6">
+    <div class="card border-0 shadow-sm opacity-75 h-100">
+      <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-1">
+          <span class="fw-semibold">{{ slot.slot_datetime | dt }}</span>
+          <span class="badge bg-light text-dark">Tee #{{ slot.tee_number.value }}</span>
+        </div>
+        <div class="text-muted small">
+          {{ group.current_size }} jogador(es)
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

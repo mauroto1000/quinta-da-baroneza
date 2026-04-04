@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% set now = today %}
+{% block title %}Agenda – Quinta da Baroneza{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h4 class="mb-0"><i class="bi bi-calendar3 me-2 text-success"></i>Agenda de Tee Times</h4>
+</div>
+
+<div class="row g-3">
+{% for day in dates %}
+  {% set has_blocks = day.blocks|length > 0 %}
+  <div class="col-6 col-md-4 col-lg-3">
+    <a href="/schedule/day/{{ day.date.isoformat() }}" class="text-decoration-none">
+      <div class="card h-100 border-0 shadow-sm {% if not has_blocks %}opacity-50{% endif %} day-card">
+        <div class="card-body text-center py-3">
+          <div class="text-muted small text-uppercase">
+            {{ day.date.strftime('%a') }}
+          </div>
+          <div class="fs-3 fw-bold {% if day.date == today %}text-success{% endif %}">
+            {{ day.date.day }}
+          </div>
+          <div class="text-muted small">{{ day.date.strftime('%b %Y') }}</div>
+          {% if day.date == today %}
+            <span class="badge bg-success mt-1">Hoje</span>
+          {% endif %}
+          {% if has_blocks %}
+            <div class="mt-2">
+              {% for block in day.blocks %}
+                <span class="badge bg-light text-dark border">
+                  <i class="bi bi-flag-fill text-success me-1"></i>Tee #{{ block.tee_number.value }}
+                  {% if block.is_blocked %}<i class="bi bi-lock-fill text-danger ms-1"></i>{% endif %}
+                </span>
+              {% endfor %}
+            </div>
+          {% else %}
+            <div class="text-muted small mt-2"><i class="bi bi-calendar-x me-1"></i>Sem agenda</div>
+          {% endif %}
+        </div>
+      </div>
+    </a>
+  </div>
+{% endfor %}
+</div>
+{% endblock %}

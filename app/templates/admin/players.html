@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+{% block title %}Jogadores – Admin{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h4 class="mb-0"><i class="bi bi-person-lines-fill me-2 text-success"></i>Jogadores</h4>
+  <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#newPlayerModal">
+    <i class="bi bi-plus-circle me-1"></i>Novo Jogador
+  </button>
+</div>
+
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Nome</th><th>E-mail</th><th>WhatsApp</th><th>HCP</th><th>Perfil</th><th>Status</th><th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in players %}
+          <tr class="{% if not p.is_active %}opacity-50{% endif %}">
+            <td>{{ p.full_name }}</td>
+            <td><small>{{ p.email }}</small></td>
+            <td><small>{{ p.whatsapp }}</small></td>
+            <td>{{ p.hcp_index if p.hcp_index is not none else '—' }}</td>
+            <td>
+              {% if p.role.value == 'admin' %}
+                <span class="badge bg-danger">Admin</span>
+              {% else %}
+                <span class="badge bg-secondary">Jogador</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if p.is_active %}
+                <span class="badge bg-success">Ativo</span>
+              {% else %}
+                <span class="badge bg-secondary">Inativo</span>
+              {% endif %}
+            </td>
+            <td>
+              <a href="/admin/players/{{ p.id }}/edit" class="btn btn-sm btn-outline-secondary">
+                <i class="bi bi-pencil"></i>
+              </a>
+              {% if p.id != user.id %}
+              <form method="post" action="/admin/players/{{ p.id }}/delete" class="d-inline"
+                onsubmit="return confirm('Excluir {{ p.full_name }}?')">
+                <button type="submit" class="btn btn-sm btn-outline-danger">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- New Player Modal -->
+<div class="modal fade" id="newPlayerModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post" action="/admin/players/new">
+        <div class="modal-header">
+          <h5 class="modal-title">Novo Jogador</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Nome Completo <span class="text-danger">*</span></label>
+            <input type="text" name="full_name" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">E-mail <span class="text-danger">*</span></label>
+            <input type="email" name="email" class="form-control" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">WhatsApp <span class="text-danger">*</span></label>
+            <input type="text" name="whatsapp" class="form-control" placeholder="(11) 99999-9999" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">HCP Index</label>
+            <input type="text" name="hcp_index" class="form-control" placeholder="Ex: 12.4">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Perfil</label>
+            <select name="role" class="form-select">
+              <option value="player">Jogador</option>
+              <option value="admin">Administrador</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Senha <span class="text-danger">*</span></label>
+            <input type="password" name="password" class="form-control" required minlength="6">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-success">Criar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

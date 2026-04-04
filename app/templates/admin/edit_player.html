@@ -1,0 +1,63 @@
+{% extends "base.html" %}
+{% block title %}Editar Jogador – Admin{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6">
+    <div class="d-flex align-items-center mb-4 gap-2">
+      <a href="/admin/players" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left"></i></a>
+      <h4 class="mb-0">Editar Jogador</h4>
+    </div>
+
+    {% if error %}
+    <div class="alert alert-danger">{{ error }}</div>
+    {% endif %}
+
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-4">
+        <form method="post">
+          <div class="mb-3">
+            <label class="form-label">Nome Completo <span class="text-danger">*</span></label>
+            <input type="text" name="full_name" class="form-control" value="{{ player.full_name }}" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">E-mail <span class="text-danger">*</span></label>
+            <input type="email" name="email" class="form-control" value="{{ player.email }}" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">WhatsApp <span class="text-danger">*</span></label>
+            <input type="text" name="whatsapp" class="form-control" value="{{ player.whatsapp }}" required>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">HCP Index</label>
+            <input type="text" name="hcp_index" class="form-control"
+              value="{{ player.hcp_index if player.hcp_index is not none else '' }}"
+              placeholder="Deixe em branco para N/I">
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Perfil</label>
+            <select name="role" class="form-select">
+              <option value="player" {% if player.role.value == 'player' %}selected{% endif %}>Jogador</option>
+              <option value="admin" {% if player.role.value == 'admin' %}selected{% endif %}>Administrador</option>
+            </select>
+          </div>
+          <div class="mb-3">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" name="is_active" id="isActive"
+                {% if player.is_active %}checked{% endif %}>
+              <label class="form-check-label" for="isActive">Conta ativa</label>
+            </div>
+          </div>
+          <div class="mb-4">
+            <label class="form-label">Nova Senha <small class="text-muted">(deixe em branco para manter)</small></label>
+            <input type="password" name="new_password" class="form-control" minlength="6">
+          </div>
+          <div class="d-flex gap-2">
+            <button type="submit" class="btn btn-success">Salvar</button>
+            <a href="/admin/players" class="btn btn-outline-secondary">Cancelar</a>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

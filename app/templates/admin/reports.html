@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Relatórios – Admin{% endblock %}
+{% block content %}
+<h4 class="mb-4"><i class="bi bi-bar-chart me-2 text-success"></i>Relatório de Ocupação</h4>
+
+<div class="card border-0 shadow-sm mb-4">
+  <div class="card-body">
+    <form method="get" class="row g-2 align-items-end">
+      <div class="col-auto">
+        <label class="form-label">Data</label>
+        <input type="date" name="report_date" class="form-control"
+          value="{{ selected_date.isoformat() if selected_date else '' }}">
+      </div>
+      <div class="col-auto">
+        <button type="submit" class="btn btn-success">
+          <i class="bi bi-search me-1"></i>Gerar Relatório
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if selected_date and not report_data %}
+<div class="alert alert-info"><i class="bi bi-info-circle me-1"></i>Nenhum dado para {{ selected_date | date }}.</div>
+{% endif %}
+
+{% for block_data in report_data %}
+<h5 class="mb-3">Tee #{{ block_data.block.tee_number.value }} — {{ selected_date | date }}</h5>
+<div class="table-responsive mb-4">
+  <table class="table table-sm table-hover align-middle">
+    <thead class="table-light">
+      <tr>
+        <th>Horário</th>
+        <th>Grupos</th>
+        <th>Jogadores</th>
+        <th>Membros</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for slot_item in block_data.slots %}
+      {% set slot = slot_item.slot %}
+      <tr {% if slot.is_blocked %}class="table-warning"{% endif %}>
+        <td>
+          {{ slot.slot_datetime | time }}
+          {% if slot.is_blocked %}<span class="badge bg-danger ms-1"><i class="bi bi-lock-fill"></i> Bloqueado</span>{% endif %}
+        </td>
+        <td>{{ slot_item.groups|length }}</td>
+        <td>{{ slot_item.total_players }}</td>
+        <td>
+          {% for group in slot_item.groups %}
+            <div>
+              <small>
+                {% for m in group.members %}
+                  {% if m.status.value == 'accepted' %}
+                    {{ m.user.full_name }}{% if not loop.last %}, {% endif %}
+                  {% endif %}
+                {% endfor %}
+              </small>
+            </div>
+          {% endfor %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot class="table-light">
+      <tr>
+        <td><strong>Total</strong></td>
+        <td><strong>
+          {% set ns = namespace(total=0) %}
+          {% for s in block_data.slots %}{% set ns.total = ns.total + s.groups|length %}{% endfor %}
+          {{ ns.total }}
+        </strong></td>
+        <td><strong>{{ block_data.slots | sum(attribute='total_players') }}</strong></td>
+        <td></td>
+      </tr>
+    </tfoot>
+  </table>
+</div>
+{% endfor %}
+{% endblock %}

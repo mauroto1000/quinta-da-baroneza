@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Solicitar Entrada em Grupo{% endblock %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-7">
+    <h4 class="mb-1"><i class="bi bi-send me-2 text-success"></i>Solicitar Entrada em Grupo</h4>
+    <p class="text-muted mb-4">
+      <i class="bi bi-clock me-1"></i>{{ slot.slot_datetime | dt }}
+      &nbsp;|&nbsp;<i class="bi bi-flag-fill text-success me-1"></i>Tee #{{ slot.tee_number.value }}
+    </p>
+
+    {% if error %}
+    <div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-1"></i>{{ error }}</div>
+    {% endif %}
+
+    {% if not available_groups %}
+    <div class="alert alert-info">
+      <i class="bi bi-info-circle me-1"></i>Não há grupos com vagas disponíveis neste horário.
+      <a href="/groups/new/{{ slot.id }}" class="alert-link ms-1">Criar um novo grupo?</a>
+    </div>
+    {% else %}
+
+    <div class="alert alert-info small">
+      <i class="bi bi-info-circle me-1"></i>
+      Selecione até <strong>3 grupos em ordem de preferência</strong>. As solicitações serão enviadas sequencialmente:
+      o próximo grupo só é notificado após a recusa do anterior.
+    </div>
+
+    <div class="card border-0 shadow-sm">
+      <div class="card-body p-4">
+        <form method="post">
+          {% for priority in [1, 2, 3] %}
+          <div class="mb-4">
+            <label class="form-label fw-semibold">
+              <span class="badge bg-success me-1">{{ priority }}ª</span> preferência
+              {% if priority > 1 %}<small class="text-muted">(opcional)</small>{% endif %}
+            </label>
+            <select name="priority_{{ priority }}" class="form-select">
+              <option value="0">— Não selecionar —</option>
+              {% for group in available_groups %}
+              <option value="{{ group.id }}">
+                {{ group.leader.full_name }} ·
+                {{ group.current_size }}/{{ group.max_players }} vagas ·
+                {% if group.status.value == 'open' %}Aberto{% elif group.status.value == 'mixed' %}Misto{% endif %}
+                {% if group.notes %} · {{ group.notes }}{% endif %}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          {% endfor %}
+
+          <div class="d-flex gap-2 mt-3">
+            <button type="submit" class="btn btn-success">
+              <i class="bi bi-send me-1"></i>Enviar Solicitação
+            </button>
+            <a href="/schedule/day/{{ slot.slot_datetime.date().isoformat() }}" class="btn btn-outline-secondary">
+              Cancelar
+            </a>
+          </div>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

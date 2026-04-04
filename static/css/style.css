@@ -1,0 +1,67 @@
+/* Quinta da Baroneza – Custom Styles */
+
+body {
+  background-color: #f8f9fa;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+/* Navbar */
+.navbar-brand {
+  letter-spacing: 0.5px;
+}
+
+/* Cards */
+.card {
+  border-radius: 0.75rem;
+}
+.card-header {
+  border-radius: 0.75rem 0.75rem 0 0 !important;
+}
+
+/* Day card hover */
+.day-card {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.day-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 6px 20px rgba(0,0,0,0.1) !important;
+}
+
+/* Group card */
+.group-card {
+  border-radius: 0.5rem !important;
+  transition: border-color 0.15s ease;
+}
+.group-card:hover {
+  border-color: #198754 !important;
+}
+
+/* Progress bar */
+.progress {
+  border-radius: 1rem;
+}
+
+/* Badges */
+.badge {
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+
+/* Table */
+.table > :not(caption) > * > * {
+  vertical-align: middle;
+}
+
+/* Footer */
+footer {
+  color: #adb5bd;
+  font-size: 0.8rem;
+}
+
+/* Login page */
+@media (max-width: 576px) {
+  main.container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+}

@@ -1,0 +1,78 @@
+{% extends "base.html" %}
+{% block title %}Minhas Solicitações{% endblock %}
+{% block content %}
+<h4 class="mb-4"><i class="bi bi-send me-2 text-success"></i>Minhas Solicitações</h4>
+
+{% if not join_requests %}
+<div class="alert alert-info"><i class="bi bi-info-circle me-1"></i>Nenhuma solicitação encontrada.</div>
+{% endif %}
+
+{% for jr in join_requests %}
+<div class="card border-0 shadow-sm mb-3">
+  <div class="card-header bg-white d-flex justify-content-between align-items-center">
+    <div>
+      <strong>Solicitação #{{ jr.id }}</strong>
+      <small class="text-muted ms-2">{{ jr.created_at | dt }}</small>
+    </div>
+    <div>
+      {% if jr.status.value == 'pending' %}
+        <span class="badge bg-warning text-dark"><i class="bi bi-hourglass me-1"></i>Aguardando</span>
+      {% elif jr.status.value == 'accepted' %}
+        <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Aceito</span>
+      {% elif jr.status.value == 'rejected' %}
+        <span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>Recusado</span>
+      {% elif jr.status.value == 'cancelled' %}
+        <span class="badge bg-secondary"><i class="bi bi-slash-circle me-1"></i>Cancelado</span>
+      {% elif jr.status.value == 'expired' %}
+        <span class="badge bg-secondary"><i class="bi bi-clock-history me-1"></i>Expirado</span>
+      {% endif %}
+    </div>
+  </div>
+  <div class="card-body pb-2">
+    <div class="row g-2">
+      {% for step in jr.steps | sort(attribute='priority') %}
+      {% set slot = step.group.tee_slot %}
+      <div class="col-12">
+        <div class="d-flex align-items-center gap-2 p-2 rounded
+          {% if step.status.value == 'accepted' %}bg-success bg-opacity-10 border border-success
+          {% elif step.status.value in ['rejected','expired','skipped'] %}bg-light text-muted
+          {% elif step.status.value == 'pending' %}bg-warning bg-opacity-10 border border-warning
+          {% else %}bg-light{% endif %}">
+          <span class="badge bg-secondary">{{ step.priority }}ª</span>
+          <div class="flex-grow-1">
+            <strong>{{ step.group.leader.full_name }}</strong>
+            <span class="text-muted ms-1">·</span>
+            <span class="text-muted">{{ slot.slot_datetime | dt }} | Tee #{{ slot.tee_number.value }}</span>
+          </div>
+          <span class="badge
+            {% if step.status.value == 'accepted' %}bg-success
+            {% elif step.status.value == 'pending' %}bg-warning text-dark
+            {% elif step.status.value == 'waiting' %}bg-light text-dark border
+            {% else %}bg-secondary{% endif %}">
+            {% if step.status.value == 'accepted' %}Aceito
+            {% elif step.status.value == 'pending' %}Aguardando
+              {% if step.expires_at %}<small>(até {{ step.expires_at | time }})</small>{% endif %}
+            {% elif step.status.value == 'waiting' %}Na fila
+            {% elif step.status.value == 'rejected' %}Recusado
+            {% elif step.status.value == 'expired' %}Expirado
+            {% elif step.status.value == 'skipped' %}Pulado
+            {% endif %}
+          </span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% if jr.status.value == 'pending' %}
+  <div class="card-footer bg-white">
+    <form method="post" action="/requests/{{ jr.id }}/cancel"
+      onsubmit="return confirm('Cancelar esta solicitação?')">
+      <button type="submit" class="btn btn-sm btn-outline-danger">
+        <i class="bi bi-x-circle me-1"></i>Cancelar Solicitação
+      </button>
+    </form>
+  </div>
+  {% endif %}
+</div>
+{% endfor %}
+{% endblock %}
