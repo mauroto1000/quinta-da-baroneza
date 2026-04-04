@@ -105,6 +105,36 @@ def create_group(
     return RedirectResponse(f"/groups/{group.id}", status_code=302)
 
 
+@router.get("/my", response_class=HTMLResponse)
+def my_groups(request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not user:
+        return RedirectResponse("/auth/login", status_code=302)
+
+    memberships = (
+        db.query(models.GroupMember)
+        .filter(
+            models.GroupMember.user_id == user.id,
+            models.GroupMember.status == models.RequestStatus.ACCEPTED,
+        )
+        .join(models.Group)
+        .join(models.TeeSlot)
+        .order_by(models.TeeSlot.slot_datetime)
+        .all()
+    )
+
+    return templates.TemplateResponse(
+        "groups/my_groups.html",
+        {
+            "request": request,
+            "user": user,
+            "memberships": memberships,
+            "GroupStatus": models.GroupStatus,
+            "now": datetime.utcnow(),
+        },
+    )
+
+
 @router.get("/{group_id}", response_class=HTMLResponse)
 def group_detail(group_id: int, request: Request, db: Session = Depends(get_db)):
     user = get_current_user(request, db)
@@ -222,33 +252,3 @@ def leave_group(group_id: int, request: Request, db: Session = Depends(get_db)):
         notifications.notify_group_member_cancelled(db, group, user)
 
     return RedirectResponse(f"/schedule/day/{group.tee_slot.slot_datetime.date().isoformat()}", status_code=302)
-
-
-@router.get("/my", response_class=HTMLResponse)
-def my_groups(request: Request, db: Session = Depends(get_db)):
-    user = get_current_user(request, db)
-    if not user:
-        return RedirectResponse("/auth/login", status_code=302)
-
-    memberships = (
-        db.query(models.GroupMember)
-        .filter(
-            models.GroupMember.user_id == user.id,
-            models.GroupMember.status == models.RequestStatus.ACCEPTED,
-        )
-        .join(models.Group)
-        .join(models.TeeSlot)
-        .order_by(models.TeeSlot.slot_datetime)
-        .all()
-    )
-
-    return templates.TemplateResponse(
-        "groups/my_groups.html",
-        {
-            "request": request,
-            "user": user,
-            "memberships": memberships,
-            "GroupStatus": models.GroupStatus,
-            "now": datetime.utcnow(),
-        },
-    )

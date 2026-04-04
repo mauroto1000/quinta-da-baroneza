@@ -1,5 +1,3 @@
-from contextlib import asynccontextmanager
-from datetime import datetime
 from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -17,7 +15,6 @@ def init_db():
     models.Base.metadata.create_all(bind=engine)
     db: Session = SessionLocal()
     try:
-        # Seed default configs
         for key, (value, description) in DEFAULT_CONFIGS.items():
             existing = db.query(models.SystemConfig).filter(models.SystemConfig.key == key).first()
             if not existing:
@@ -27,13 +24,7 @@ def init_db():
         db.close()
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    init_db()
-    yield
-
-
-app = FastAPI(title="Quinta da Baroneza – Agendamento de Tee", lifespan=lifespan)
+app = FastAPI(title="Quinta da Baroneza – Agendamento de Tee")
 
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
