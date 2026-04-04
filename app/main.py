@@ -4,7 +4,6 @@ from fastapi import FastAPI, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from apscheduler.schedulers.background import BackgroundScheduler
 from sqlalchemy.orm import Session
 
 from app.database import engine, SessionLocal
@@ -28,17 +27,10 @@ def init_db():
         db.close()
 
 
-scheduler = BackgroundScheduler()
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
-    from app.services.tasks import check_expired_steps
-    scheduler.add_job(check_expired_steps, "interval", minutes=1, id="check_expired_steps")
-    scheduler.start()
     yield
-    scheduler.shutdown()
 
 
 app = FastAPI(title="Quinta da Baroneza – Agendamento de Tee", lifespan=lifespan)
