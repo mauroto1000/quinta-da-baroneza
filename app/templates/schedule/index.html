@@ -39,9 +39,11 @@
           {% if not day.all_blocked %}
           <div class="mb-2">
             {% for block in day.blocks %}
-              <span class="badge bg-light text-dark border me-1">
-                <i class="bi bi-flag-fill text-success me-1"></i>Tee #{{ block.tee_number.value }}
-              </span>
+              {% if block.tee_number.value == 1 %}
+                <span class="badge bg-success me-1"><i class="bi bi-flag-fill me-1"></i>Tee #1</span>
+              {% else %}
+                <span class="badge bg-primary me-1"><i class="bi bi-flag-fill me-1"></i>Tee #10</span>
+              {% endif %}
             {% endfor %}
           </div>
           {% endif %}
@@ -56,7 +58,11 @@
               {% for slot in day.occupied %}
               <div class="d-flex justify-content-between align-items-center py-1 border-bottom" style="font-size:0.78rem">
                 <span>
-                  <span class="text-muted me-1">#{{ slot.tee }}</span>
+                  {% if slot.tee == 1 %}
+                    <span class="badge bg-success me-1" style="font-size:0.65rem">#1</span>
+                  {% else %}
+                    <span class="badge bg-primary me-1" style="font-size:0.65rem">#10</span>
+                  {% endif %}
                   <strong>{{ slot.time | time }}</strong>
                 </span>
                 <span class="badge bg-success bg-opacity-75">
