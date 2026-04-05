@@ -25,8 +25,8 @@
   {% set block = tee_entry.block %}
   {% set tee_val = block.tee_number.value %}
 
-  {# Cores por tee: #1 = verde, #10 = azul #}
-  {% if tee_val == 1 %}
+  {# Cores por tee: #1 = verde, #10 = azul — tee_val é string ("1" ou "10") #}
+  {% if tee_val == "1" %}
     {% set tee_color = "success" %}
     {% set tee_bg = "#198754" %}
     {% set tee_light = "success" %}
@@ -46,11 +46,6 @@
       <div class="d-flex align-items-center gap-2">
         <i class="bi bi-flag-fill fs-5"></i>
         <span class="fs-5 fw-bold">Tee #{{ tee_val }}</span>
-        {% if tee_val == 1 %}
-          <span class="badge bg-white text-success">Saída 1</span>
-        {% else %}
-          <span class="badge bg-white text-primary">Saída 10</span>
-        {% endif %}
       </div>
       {% if tee_entry.is_blocked %}
         <span class="badge bg-warning text-dark"><i class="bi bi-lock-fill me-1"></i>Bloqueado</span>

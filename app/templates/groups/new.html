@@ -21,7 +21,7 @@
         <label class="form-label fw-semibold mb-2">Tee de saída</label>
         <div class="d-flex gap-2">
           {% for ts in tee_options %}
-            {% if ts.tee_number.value == 1 %}
+            {% if ts.tee_number.value == "1" %}
               {% set tcolor = "success" %}
               {% set ticon = "bi-flag-fill" %}
             {% else %}
