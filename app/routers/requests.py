@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, date
 from fastapi import APIRouter, Request, Depends, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
@@ -12,190 +12,22 @@ router = APIRouter(prefix="/requests", tags=["requests"])
 templates = Jinja2Templates(directory="app/templates")
 
 
-@router.get("/new/{slot_id}", response_class=HTMLResponse)
-def new_request_page(slot_id: int, request: Request, db: Session = Depends(get_db)):
-    user = get_current_user(request, db)
-    if not user:
-        return RedirectResponse("/auth/login", status_code=302)
-
-    slot = db.query(models.TeeSlot).filter(models.TeeSlot.id == slot_id).first()
-    if not slot:
-        return RedirectResponse("/schedule", status_code=302)
-
-    # Groups in this slot with available spots, excluding user's own group
-    groups = (
-        db.query(models.Group)
-        .filter(
-            models.Group.tee_slot_id == slot_id,
-            models.Group.status.in_([
-                models.GroupStatus.OPEN,
-                models.GroupStatus.MIXED,
-            ]),
-        )
+def _available_groups_on_date(db: Session, day: date, user_id: int, exclude_group_id: int = 0):
+    """Grupos disponíveis no mesmo dia, excluindo o grupo já escolhido e grupos onde o usuário já é membro."""
+    slots = (
+        db.query(models.TeeSlot)
+        .join(models.ScheduleBlock)
+        .filter(models.ScheduleBlock.date == day)
         .all()
     )
-    available_groups = [
-        g for g in groups
-        if not g.is_full
-        and not any(m.user_id == user.id and m.status == models.RequestStatus.ACCEPTED for m in g.members)
-    ]
+    slot_ids = [s.id for s in slots]
 
-    return templates.TemplateResponse(
-        "requests/new.html",
-        {
-            "request": request,
-            "user": user,
-            "slot": slot,
-            "available_groups": available_groups,
-            "error": None,
-            "GroupStatus": models.GroupStatus,
-        },
-    )
-
-
-@router.post("/new/{slot_id}", response_class=HTMLResponse)
-def submit_request(
-    slot_id: int,
-    request: Request,
-    priority_1: int = Form(0),
-    priority_2: int = Form(0),
-    priority_3: int = Form(0),
-    db: Session = Depends(get_db),
-):
-    user = get_current_user(request, db)
-    if not user:
-        return RedirectResponse("/auth/login", status_code=302)
-
-    slot = db.query(models.TeeSlot).filter(models.TeeSlot.id == slot_id).first()
-    if not slot:
-        return RedirectResponse("/schedule", status_code=302)
-
-    selected_ids = [gid for gid in [priority_1, priority_2, priority_3] if gid]
-
-    # Validate: at least 1, no duplicates
-    if not selected_ids:
-        groups = _get_available_groups(db, slot_id, user.id)
-        return templates.TemplateResponse(
-            "requests/new.html",
-            {"request": request, "user": user, "slot": slot, "available_groups": groups,
-             "error": "Selecione ao menos um grupo.", "GroupStatus": models.GroupStatus},
-        )
-
-    if len(selected_ids) != len(set(selected_ids)):
-        groups = _get_available_groups(db, slot_id, user.id)
-        return templates.TemplateResponse(
-            "requests/new.html",
-            {"request": request, "user": user, "slot": slot, "available_groups": groups,
-             "error": "Não selecione o mesmo grupo mais de uma vez.", "GroupStatus": models.GroupStatus},
-        )
-
-    # Verify all groups belong to this slot and are available
-    for gid in selected_ids:
-        g = db.query(models.Group).filter(models.Group.id == gid, models.Group.tee_slot_id == slot_id).first()
-        if not g:
-            groups = _get_available_groups(db, slot_id, user.id)
-            return templates.TemplateResponse(
-                "requests/new.html",
-                {"request": request, "user": user, "slot": slot, "available_groups": groups,
-                 "error": "Grupo inválido selecionado.", "GroupStatus": models.GroupStatus},
-            )
-
-    # Check user not already in slot
-    existing_membership = (
-        db.query(models.GroupMember)
-        .join(models.Group)
-        .filter(
-            models.Group.tee_slot_id == slot_id,
-            models.GroupMember.user_id == user.id,
-            models.GroupMember.status == models.RequestStatus.ACCEPTED,
-        )
-        .first()
-    )
-    if existing_membership:
-        return RedirectResponse(f"/schedule/day/{slot.slot_datetime.date().isoformat()}", status_code=302)
-
-    # Check for existing pending request for this slot
-    existing_request = (
-        db.query(models.JoinRequest)
-        .join(models.JoinRequestStep)
-        .join(models.Group)
-        .filter(
-            models.JoinRequest.requester_id == user.id,
-            models.JoinRequest.status == models.RequestStatus.PENDING,
-            models.Group.tee_slot_id == slot_id,
-        )
-        .first()
-    )
-    if existing_request:
-        groups = _get_available_groups(db, slot_id, user.id)
-        return templates.TemplateResponse(
-            "requests/new.html",
-            {"request": request, "user": user, "slot": slot, "available_groups": groups,
-             "error": "Você já tem uma solicitação pendente para este horário.", "GroupStatus": models.GroupStatus},
-        )
-
-    # Create join request
-    join_request = models.JoinRequest(requester_id=user.id, current_step=1)
-    db.add(join_request)
-    db.flush()
-
-    first_group_id = selected_ids[0]
-    first_group = db.query(models.Group).filter(models.Group.id == first_group_id).first()
-
-    # If first group is OPEN — immediate join, no approval needed
-    if first_group.status == models.GroupStatus.OPEN and not first_group.is_full:
-        membership = models.GroupMember(
-            group_id=first_group_id,
-            user_id=user.id,
-            status=models.RequestStatus.ACCEPTED,
-        )
-        db.add(membership)
-        join_request.status = models.RequestStatus.ACCEPTED
-        join_request.resolved_at = datetime.utcnow()
-
-        step = models.JoinRequestStep(
-            join_request_id=join_request.id,
-            group_id=first_group_id,
-            priority=1,
-            status=models.StepStatus.ACCEPTED,
-            notified_at=datetime.utcnow(),
-            responded_at=datetime.utcnow(),
-        )
-        db.add(step)
-        if first_group.is_full:
-            first_group.status = models.GroupStatus.FULL
-        db.commit()
-        notifications.notify_group_new_member(db, first_group, user)
-        return RedirectResponse(f"/groups/{first_group_id}", status_code=302)
-
-    # Create steps
-    for i, gid in enumerate(selected_ids, start=1):
-        step_status = models.StepStatus.WAITING if i > 1 else models.StepStatus.WAITING
-        step = models.JoinRequestStep(
-            join_request_id=join_request.id,
-            group_id=gid,
-            priority=i,
-            status=models.StepStatus.WAITING,
-        )
-        db.add(step)
-    db.flush()
-
-    db.commit()
-    db.refresh(join_request)
-
-    # Notify first group leader
-    first_step = next(s for s in join_request.steps if s.priority == 1)
-    notifications.notify_leader_join_request(db, first_step)
-
-    return RedirectResponse("/requests/my", status_code=302)
-
-
-def _get_available_groups(db: Session, slot_id: int, user_id: int):
     groups = (
         db.query(models.Group)
         .filter(
-            models.Group.tee_slot_id == slot_id,
+            models.Group.tee_slot_id.in_(slot_ids),
             models.Group.status.in_([models.GroupStatus.OPEN, models.GroupStatus.MIXED]),
+            models.Group.id != exclude_group_id,
         )
         .all()
     )
@@ -204,6 +36,164 @@ def _get_available_groups(db: Session, slot_id: int, user_id: int):
         if not g.is_full
         and not any(m.user_id == user_id and m.status == models.RequestStatus.ACCEPTED for m in g.members)
     ]
+
+
+@router.get("/new/{group_id}", response_class=HTMLResponse)
+def new_request_page(group_id: int, request: Request, db: Session = Depends(get_db)):
+    user = get_current_user(request, db)
+    if not user:
+        return RedirectResponse("/auth/login", status_code=302)
+
+    first_group = db.query(models.Group).filter(models.Group.id == group_id).first()
+    if not first_group:
+        return RedirectResponse("/schedule", status_code=302)
+
+    slot = first_group.tee_slot
+    day = slot.slot_datetime.date()
+
+    other_groups = _available_groups_on_date(db, day, user.id, exclude_group_id=group_id)
+
+    return templates.TemplateResponse(
+        "requests/new.html",
+        {
+            "request": request,
+            "user": user,
+            "first_group": first_group,
+            "slot": slot,
+            "other_groups": other_groups,
+            "day": day,
+            "error": None,
+            "GroupStatus": models.GroupStatus,
+        },
+    )
+
+
+@router.post("/new/{group_id}", response_class=HTMLResponse)
+def submit_request(
+    group_id: int,
+    request: Request,
+    priority_2: int = Form(0),
+    priority_3: int = Form(0),
+    db: Session = Depends(get_db),
+):
+    user = get_current_user(request, db)
+    if not user:
+        return RedirectResponse("/auth/login", status_code=302)
+
+    first_group = db.query(models.Group).filter(models.Group.id == group_id).first()
+    if not first_group:
+        return RedirectResponse("/schedule", status_code=302)
+
+    slot = first_group.tee_slot
+    day = slot.slot_datetime.date()
+
+    def render_error(msg):
+        other_groups = _available_groups_on_date(db, day, user.id, exclude_group_id=group_id)
+        return templates.TemplateResponse(
+            "requests/new.html",
+            {
+                "request": request, "user": user,
+                "first_group": first_group, "slot": slot,
+                "other_groups": other_groups, "day": day,
+                "error": msg, "GroupStatus": models.GroupStatus,
+            },
+        )
+
+    # Build ordered list: priority 1 is always first_group
+    selected_ids = [group_id] + [gid for gid in [priority_2, priority_3] if gid]
+
+    if len(selected_ids) != len(set(selected_ids)):
+        return render_error("Não selecione o mesmo grupo mais de uma vez.")
+
+    # Validate priorities 2 and 3
+    for gid in selected_ids[1:]:
+        g = db.query(models.Group).filter(models.Group.id == gid).first()
+        if not g:
+            return render_error("Grupo inválido selecionado.")
+
+    # Check user not already in a group on this day
+    existing_membership = (
+        db.query(models.GroupMember)
+        .join(models.Group)
+        .join(models.TeeSlot)
+        .join(models.ScheduleBlock)
+        .filter(
+            models.ScheduleBlock.date == day,
+            models.GroupMember.user_id == user.id,
+            models.GroupMember.status == models.RequestStatus.ACCEPTED,
+        )
+        .first()
+    )
+    if existing_membership:
+        return render_error("Você já está em um grupo neste dia.")
+
+    # Check for existing pending request on this day
+    existing_request = (
+        db.query(models.JoinRequest)
+        .join(models.JoinRequestStep)
+        .join(models.Group)
+        .join(models.TeeSlot)
+        .join(models.ScheduleBlock)
+        .filter(
+            models.JoinRequest.requester_id == user.id,
+            models.JoinRequest.status == models.RequestStatus.PENDING,
+            models.ScheduleBlock.date == day,
+        )
+        .first()
+    )
+    if existing_request:
+        return render_error("Você já tem uma solicitação pendente para este dia.")
+
+    # Create join request
+    join_request = models.JoinRequest(requester_id=user.id, current_step=1)
+    db.add(join_request)
+    db.flush()
+
+    first_g = db.query(models.Group).filter(models.Group.id == group_id).first()
+
+    # If first group is OPEN — immediate join
+    if first_g.status == models.GroupStatus.OPEN and not first_g.is_full:
+        membership = models.GroupMember(
+            group_id=group_id,
+            user_id=user.id,
+            status=models.RequestStatus.ACCEPTED,
+        )
+        db.add(membership)
+        join_request.status = models.RequestStatus.ACCEPTED
+        join_request.resolved_at = datetime.utcnow()
+        step = models.JoinRequestStep(
+            join_request_id=join_request.id,
+            group_id=group_id,
+            priority=1,
+            status=models.StepStatus.ACCEPTED,
+            notified_at=datetime.utcnow(),
+            responded_at=datetime.utcnow(),
+        )
+        db.add(step)
+        if first_g.is_full:
+            first_g.status = models.GroupStatus.FULL
+        db.commit()
+        notifications.notify_group_new_member(db, first_g, user)
+        return RedirectResponse(f"/groups/{group_id}", status_code=302)
+
+    # Create steps
+    for i, gid in enumerate(selected_ids, start=1):
+        step = models.JoinRequestStep(
+            join_request_id=join_request.id,
+            group_id=gid,
+            priority=i,
+            status=models.StepStatus.WAITING,
+        )
+        db.add(step)
+    db.flush()
+    db.commit()
+    db.refresh(join_request)
+
+    # Notify first group leader
+    first_step = next(s for s in join_request.steps if s.priority == 1)
+    notifications.notify_leader_join_request(db, first_step)
+
+    return RedirectResponse("/requests/my", status_code=302)
 
 
 @router.get("/my", response_class=HTMLResponse)
@@ -234,7 +224,6 @@ def my_requests(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/respond/{token}/{action}", response_class=HTMLResponse)
 def respond_to_request(token: str, action: str, request: Request, db: Session = Depends(get_db)):
-    """Leader responds via WhatsApp link (no login required — token auth)."""
     step = db.query(models.JoinRequestStep).filter(
         models.JoinRequestStep.response_token == token
     ).first()
@@ -261,7 +250,7 @@ def respond_to_request(token: str, action: str, request: Request, db: Session = 
     accepted = action.lower() == "accept"
     task_service.process_step_response(db, step, accepted)
 
-    msg = "Entrada *aceita* com sucesso! O jogador foi notificado." if accepted else "Entrada recusada. O jogador será notificado."
+    msg = "Entrada aceita com sucesso! O jogador foi notificado." if accepted else "Entrada recusada. O jogador será notificado."
     return templates.TemplateResponse(
         "requests/respond_result.html",
         {"request": request, "user": None, "message": msg, "success": accepted},
@@ -275,7 +264,6 @@ def respond_step_in_app(
     action: str = Form(...),
     db: Session = Depends(get_db),
 ):
-    """Leader responds from within the app (requires login)."""
     user = get_current_user(request, db)
     if not user:
         return RedirectResponse("/auth/login", status_code=302)

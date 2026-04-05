@@ -5,62 +5,115 @@
   <div class="col-md-7">
     <h4 class="mb-1"><i class="bi bi-send me-2 text-success"></i>Solicitar Entrada em Grupo</h4>
     <p class="text-muted mb-4">
-      <i class="bi bi-clock me-1"></i>{{ slot.slot_datetime | dt }}
-      &nbsp;|&nbsp;<i class="bi bi-flag-fill text-success me-1"></i>Tee #{{ slot.tee_number.value }}
+      <i class="bi bi-calendar me-1"></i>{{ day.strftime('%d/%m/%Y') }}
     </p>
 
     {% if error %}
     <div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-1"></i>{{ error }}</div>
     {% endif %}
 
-    {% if not available_groups %}
-    <div class="alert alert-info">
-      <i class="bi bi-info-circle me-1"></i>Não há grupos com vagas disponíveis neste horário.
-      <a href="/groups/new/{{ slot.id }}" class="alert-link ms-1">Criar um novo grupo?</a>
-    </div>
-    {% else %}
-
     <div class="alert alert-info small">
       <i class="bi bi-info-circle me-1"></i>
-      Selecione até <strong>3 grupos em ordem de preferência</strong>. As solicitações serão enviadas sequencialmente:
-      o próximo grupo só é notificado após a recusa do anterior.
+      Escolha até <strong>3 grupos em ordem de preferência</strong>. O responsável do grupo <strong>1</strong> será
+      notificado primeiro. Somente após recusa ou expiração do prazo o grupo <strong>2</strong> será acionado, e assim por diante.
     </div>
 
-    <div class="card border-0 shadow-sm">
-      <div class="card-body p-4">
-        <form method="post">
-          {% for priority in [1, 2, 3] %}
-          <div class="mb-4">
-            <label class="form-label fw-semibold">
-              <span class="badge bg-success me-1">{{ priority }}ª</span> preferência
-              {% if priority > 1 %}<small class="text-muted">(opcional)</small>{% endif %}
-            </label>
-            <select name="priority_{{ priority }}" class="form-select">
-              <option value="0">— Não selecionar —</option>
-              {% for group in available_groups %}
-              <option value="{{ group.id }}">
-                {{ group.leader.full_name }} ·
-                {{ group.current_size }}/{{ group.max_players }} vagas ·
-                {% if group.status.value == 'open' %}Aberto{% elif group.status.value == 'mixed' %}Misto{% endif %}
-                {% if group.notes %} · {{ group.notes }}{% endif %}
-              </option>
-              {% endfor %}
-            </select>
+    <form method="post">
+      <!-- Preferência 1 — fixa, escolhida pelo jogador na agenda -->
+      <div class="card border-success border-2 shadow-sm mb-3">
+        <div class="card-header bg-success text-white py-2">
+          <strong><span class="badge bg-white text-success me-2">1ª</span>Preferência</strong>
+          <small class="ms-2 opacity-75">selecionada na agenda</small>
+        </div>
+        <div class="card-body py-3">
+          <input type="hidden" name="priority_1" value="{{ first_group.id }}">
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <i class="bi bi-person-fill text-success me-1"></i>
+              <strong>{{ first_group.leader.full_name }}</strong>
+              <span class="badge bg-success ms-2">
+                {% if first_group.status.value == 'open' %}Aberto{% else %}Misto{% endif %}
+              </span>
+            </div>
+            <div class="text-muted small">
+              <i class="bi bi-clock me-1"></i>{{ slot.slot_datetime | time }}
+              &nbsp;|&nbsp;<i class="bi bi-flag-fill text-success me-1"></i>Tee #{{ slot.tee_number.value }}
+            </div>
           </div>
-          {% endfor %}
-
-          <div class="d-flex gap-2 mt-3">
-            <button type="submit" class="btn btn-success">
-              <i class="bi bi-send me-1"></i>Enviar Solicitação
-            </button>
-            <a href="/schedule/day/{{ slot.slot_datetime.date().isoformat() }}" class="btn btn-outline-secondary">
-              Cancelar
-            </a>
+          <div class="mt-2">
+            {% for m in first_group.members %}
+              {% if m.status.value == 'accepted' %}
+              <span class="badge bg-light text-dark border me-1">
+                <i class="bi bi-person me-1"></i>{{ m.user.full_name.split()[0] }}
+                {% if m.user.hcp_index is not none %}<small>({{ m.user.hcp_index }})</small>{% endif %}
+              </span>
+              {% endif %}
+            {% endfor %}
           </div>
-        </form>
+          {% if first_group.notes %}
+          <small class="text-muted mt-1 d-block"><i class="bi bi-chat-text me-1"></i>{{ first_group.notes }}</small>
+          {% endif %}
+          <small class="text-muted d-block mt-1">
+            <i class="bi bi-people me-1"></i>{{ first_group.current_size }}/{{ first_group.max_players }} jogadores
+          </small>
+        </div>
       </div>
-    </div>
-    {% endif %}
+
+      <!-- Preferências 2 e 3 — opcionais -->
+      {% if other_groups %}
+      {% for priority, field_name in [(2, 'priority_2'), (3, 'priority_3')] %}
+      <div class="card border-0 shadow-sm mb-3">
+        <div class="card-header bg-light py-2">
+          <strong><span class="badge bg-secondary me-2">{{ priority }}ª</span>Preferência</strong>
+          <small class="text-muted ms-1">(opcional)</small>
+        </div>
+        <div class="card-body py-3">
+          <select name="{{ field_name }}" class="form-select pref-select">
+            <option value="0">— Não selecionar —</option>
+            {% for group in other_groups %}
+            <option value="{{ group.id }}">
+              {{ group.tee_slot.slot_datetime | time }} · Tee #{{ group.tee_slot.tee_number.value }}
+              &nbsp;·&nbsp;{{ group.leader.full_name }}
+              &nbsp;·&nbsp;{{ group.current_size }}/{{ group.max_players }} vagas
+              {% if group.status.value == 'open' %}· Aberto{% else %}· Misto{% endif %}
+              {% if group.notes %} · {{ group.notes }}{% endif %}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      {% endfor %}
+      {% else %}
+      <div class="alert alert-light border small">
+        <i class="bi bi-info-circle me-1"></i>Não há outros grupos disponíveis neste dia para adicionar como preferência alternativa.
+      </div>
+      {% endif %}
+
+      <div class="d-flex gap-2 mt-3">
+        <button type="submit" class="btn btn-success">
+          <i class="bi bi-send me-1"></i>Enviar Solicitação
+        </button>
+        <a href="/schedule/day/{{ day.isoformat() }}" class="btn btn-outline-secondary">
+          Cancelar
+        </a>
+      </div>
+    </form>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Impede selecionar o mesmo grupo nas preferências 2 e 3
+const selects = document.querySelectorAll('.pref-select');
+selects.forEach(sel => {
+  sel.addEventListener('change', () => {
+    const vals = Array.from(selects).map(s => s.value).filter(v => v !== '0');
+    const hasDup = vals.length !== new Set(vals).size;
+    const btn = document.querySelector('button[type="submit"]');
+    btn.disabled = hasDup;
+    btn.title = hasDup ? 'Não selecione o mesmo grupo mais de uma vez.' : '';
+  });
+});
+</script>
 {% endblock %}
