@@ -82,10 +82,10 @@ def create_player(
     email: str = Form(...),
     whatsapp: str = Form(...),
     hcp_index: str = Form(""),
-    password: str = Form(...),
     role: str = Form("player"),
     db: Session = Depends(get_db),
 ):
+    from app.routers.auth import DEFAULT_INITIAL_PASSWORD
     user = require_admin(request, db)
     email = email.lower().strip()
 
@@ -109,8 +109,9 @@ def create_player(
         email=email,
         whatsapp=whatsapp.strip(),
         hcp_index=hcp,
-        password_hash=hash_password(password),
+        password_hash=hash_password(DEFAULT_INITIAL_PASSWORD),
         role=models.UserRole(role),
+        must_change_password=True,
     )
     db.add(new_user)
     db.commit()

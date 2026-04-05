@@ -56,6 +56,7 @@ class User(Base):
     password_hash = Column(String(128), nullable=False)
     role = Column(Enum(UserRole), default=UserRole.PLAYER, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
+    must_change_password = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     # relationships

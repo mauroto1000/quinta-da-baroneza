@@ -29,6 +29,11 @@ def require_login(request: Request, db: Session = Depends(get_db)) -> models.Use
             status_code=status.HTTP_303_SEE_OTHER,
             headers={"Location": "/auth/login"},
         )
+    if user.must_change_password and request.url.path != "/auth/change-password":
+        raise HTTPException(
+            status_code=status.HTTP_303_SEE_OTHER,
+            headers={"Location": "/auth/change-password?first=1"},
+        )
     return user
 
 
