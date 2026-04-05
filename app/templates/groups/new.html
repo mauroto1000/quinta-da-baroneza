@@ -9,13 +9,41 @@
     <div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-1"></i>{{ error }}</div>
     {% endif %}
 
+    <!-- Informação do horário -->
     <div class="card border-0 shadow-sm mb-3">
       <div class="card-body">
-        <div class="d-flex align-items-center gap-3">
+        <div class="d-flex align-items-center gap-3 mb-3">
           <span class="fs-4 fw-bold">{{ slot.slot_datetime | time }}</span>
-          <span class="badge bg-success fs-6">Tee #{{ slot.tee_number.value }}</span>
           <span class="text-muted">{{ slot.slot_datetime | date }}</span>
         </div>
+
+        <!-- Seletor de Tee -->
+        <label class="form-label fw-semibold mb-2">Tee de saída</label>
+        <div class="d-flex gap-2">
+          {% for ts in tee_options %}
+            {% if ts.tee_number.value == 1 %}
+              {% set tcolor = "success" %}
+              {% set ticon = "bi-flag-fill" %}
+            {% else %}
+              {% set tcolor = "primary" %}
+              {% set ticon = "bi-flag-fill" %}
+            {% endif %}
+            <a href="/groups/new/{{ ts.id }}"
+               class="btn {% if ts.id == slot.id %}btn-{{ tcolor }}{% else %}btn-outline-{{ tcolor }}{% endif %} flex-fill py-3">
+              <i class="bi {{ ticon }} me-2"></i>
+              <strong>Tee #{{ ts.tee_number.value }}</strong>
+              {% if ts.id == slot.id %}
+                <span class="d-block small opacity-75 mt-1">selecionado</span>
+              {% endif %}
+            </a>
+          {% endfor %}
+        </div>
+
+        {% if tee_options | length == 1 %}
+          <small class="text-muted mt-2 d-block">
+            <i class="bi bi-info-circle me-1"></i>Apenas um tee disponível neste horário.
+          </small>
+        {% endif %}
       </div>
     </div>
 

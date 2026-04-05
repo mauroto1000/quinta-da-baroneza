@@ -25,6 +25,17 @@ def new_group_page(slot_id: int, request: Request, db: Session = Depends(get_db)
     if slot.slot_datetime <= datetime.utcnow():
         return RedirectResponse(f"/schedule/day/{slot.slot_datetime.date()}", status_code=302)
 
+    # Todos os tees disponíveis neste horário (para o seletor de tee)
+    tee_options = (
+        db.query(models.TeeSlot)
+        .filter(
+            models.TeeSlot.slot_datetime == slot.slot_datetime,
+            models.TeeSlot.is_blocked == False,
+        )
+        .order_by(models.TeeSlot.tee_number)
+        .all()
+    )
+
     # Check if user already has a group in this slot
     existing = (
         db.query(models.GroupMember)
@@ -39,12 +50,12 @@ def new_group_page(slot_id: int, request: Request, db: Session = Depends(get_db)
     if existing:
         return templates.TemplateResponse(
             "groups/new.html",
-            {"request": request, "user": user, "slot": slot, "error": "Você já tem um grupo neste horário.", "GroupStatus": models.GroupStatus},
+            {"request": request, "user": user, "slot": slot, "tee_options": tee_options, "error": "Você já tem um grupo neste horário.", "GroupStatus": models.GroupStatus},
         )
 
     return templates.TemplateResponse(
         "groups/new.html",
-        {"request": request, "user": user, "slot": slot, "error": None, "GroupStatus": models.GroupStatus},
+        {"request": request, "user": user, "slot": slot, "tee_options": tee_options, "error": None, "GroupStatus": models.GroupStatus},
     )
 
 
