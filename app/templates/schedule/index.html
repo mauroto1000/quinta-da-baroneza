@@ -1,5 +1,4 @@
 {% extends "base.html" %}
-{% set now = today %}
 {% block title %}Agenda – Quinta da Baroneza{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -11,28 +10,68 @@
   <div class="col-6 col-md-4 col-lg-3">
     <a href="/schedule/day/{{ day.date.isoformat() }}" class="text-decoration-none">
       <div class="card h-100 border-0 shadow-sm {% if day.all_blocked %}opacity-50{% endif %} day-card">
-        <div class="card-body text-center py-3">
-          <div class="text-muted small text-uppercase">{{ day.date.strftime('%a') }}</div>
-          <div class="fs-3 fw-bold {% if day.date == today %}text-success{% endif %}">
-            {{ day.date.day }}
-          </div>
-          <div class="text-muted small">{{ day.date.strftime('%b %Y') }}</div>
-          {% if day.date == today %}
-            <span class="badge bg-success mt-1">Hoje</span>
-          {% endif %}
-          {% if day.all_blocked %}
-            <div class="mt-2">
-              <span class="badge bg-danger"><i class="bi bi-lock-fill me-1"></i>Bloqueado</span>
+        <div class="card-body p-3">
+
+          <!-- Cabeçalho: dia da semana + data -->
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <div>
+              <div class="text-muted small text-uppercase fw-semibold">{{ day.date.strftime('%a') }}</div>
+              <div class="fs-2 fw-bold lh-1 {% if day.date == today %}text-success{% endif %}">
+                {{ day.date.day }}
+              </div>
+              <div class="text-muted small">{{ day.date.strftime('%b %Y') }}</div>
             </div>
-          {% else %}
-            <div class="mt-2">
-              {% for block in day.blocks %}
-                <span class="badge bg-light text-dark border">
-                  <i class="bi bi-flag-fill text-success me-1"></i>Tee #{{ block.tee_number.value }}
+            <div class="text-end">
+              {% if day.date == today %}
+                <span class="badge bg-success">Hoje</span>
+              {% endif %}
+              {% if day.all_blocked %}
+                <span class="badge bg-danger"><i class="bi bi-lock-fill me-1"></i>Bloqueado</span>
+              {% elif day.total_slots > 0 %}
+                <span class="badge bg-success bg-opacity-10 text-success border border-success">
+                  <i class="bi bi-people-fill me-1"></i>{{ day.total_players }} jogador{{ 'es' if day.total_players != 1 }}
                 </span>
+              {% endif %}
+            </div>
+          </div>
+
+          <!-- Tees disponíveis -->
+          {% if not day.all_blocked %}
+          <div class="mb-2">
+            {% for block in day.blocks %}
+              <span class="badge bg-light text-dark border me-1">
+                <i class="bi bi-flag-fill text-success me-1"></i>Tee #{{ block.tee_number.value }}
+              </span>
+            {% endfor %}
+          </div>
+          {% endif %}
+
+          <!-- Horários ocupados -->
+          {% if day.occupied %}
+          <div class="border-top pt-2 mt-1">
+            <div class="text-muted" style="font-size:0.7rem;text-transform:uppercase;letter-spacing:.5px;font-weight:600">
+              Horários com grupo
+            </div>
+            <div class="mt-1" style="max-height:80px;overflow-y:auto">
+              {% for slot in day.occupied %}
+              <div class="d-flex justify-content-between align-items-center py-1 border-bottom" style="font-size:0.78rem">
+                <span>
+                  <span class="text-muted me-1">#{{ slot.tee }}</span>
+                  <strong>{{ slot.time | time }}</strong>
+                </span>
+                <span class="badge bg-success bg-opacity-75">
+                  <i class="bi bi-person-fill me-1"></i>{{ slot.players }}
+                </span>
+              </div>
               {% endfor %}
             </div>
+          </div>
+          {% else %}
+          <div class="text-muted" style="font-size:0.75rem">
+            <i class="bi bi-calendar2-x me-1"></i>Nenhum grupo ainda
+          </div>
           {% endif %}
+
         </div>
       </div>
     </a>

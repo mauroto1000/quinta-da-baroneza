@@ -35,12 +35,48 @@ def schedule_index(request: Request, db: Session = Depends(get_db)):
         .all()
     )
 
+    # Slots com grupos para o período inteiro (uma só query)
+    slots_with_groups = (
+        db.query(models.TeeSlot)
+        .join(models.ScheduleBlock)
+        .join(models.Group, models.Group.tee_slot_id == models.TeeSlot.id)
+        .filter(
+            models.ScheduleBlock.date >= today,
+            models.ScheduleBlock.date <= end_date,
+        )
+        .all()
+    )
+
+    # Monta índice: date -> lista de (horário, nº jogadores)
+    from collections import defaultdict
+    day_occupancy = defaultdict(list)
+    for slot in slots_with_groups:
+        players = sum(
+            1 for g in slot.groups
+            for m in g.members
+            if m.status == models.RequestStatus.ACCEPTED
+        )
+        if players > 0:
+            day_occupancy[slot.slot_datetime.date()].append({
+                "time": slot.slot_datetime,
+                "players": players,
+                "tee": slot.tee_number.value,
+            })
+
     dates = []
     for i in range(window + 1):
         d = today + timedelta(days=i)
         day_blocks = [b for b in blocks if b.date == d and not b.is_blocked]
         all_blocked = all(b.is_blocked for b in blocks if b.date == d) and any(b.date == d for b in blocks)
-        dates.append({"date": d, "blocks": day_blocks, "all_blocked": all_blocked})
+        occupied = sorted(day_occupancy.get(d, []), key=lambda x: x["time"])
+        dates.append({
+            "date": d,
+            "blocks": day_blocks,
+            "all_blocked": all_blocked,
+            "occupied": occupied,
+            "total_players": sum(o["players"] for o in occupied),
+            "total_slots": len(occupied),
+        })
 
     return templates.TemplateResponse(
         "schedule/index.html",
