@@ -10,166 +10,151 @@
   </div>
 </div>
 
-{% set all_blocked = tees_data | selectattr('is_blocked') | list | length == tees_data | length and tees_data | length > 0 %}
+{# Tees disponíveis no dia #}
+{% set all_blocked = blocks | selectattr('is_blocked') | list | length == blocks | length and blocks | length > 0 %}
 
 {% if all_blocked %}
   <div class="alert alert-warning">
     <i class="bi bi-lock-fill me-2"></i><strong>Dia bloqueado.</strong>
-    {% for tee in tees_data %}{% if tee.block.block_reason %} {{ tee.block.block_reason }}{% endif %}{% endfor %}
+    {% for b in blocks %}{% if b.block_reason %} {{ b.block_reason }}{% endif %}{% endfor %}
   </div>
-{% elif not tees_data %}
-  <div class="alert alert-info"><i class="bi bi-info-circle me-1"></i>Carregando horários...</div>
+{% elif not time_slots %}
+  <div class="alert alert-info"><i class="bi bi-info-circle me-1"></i>Nenhum horário disponível.</div>
 {% endif %}
 
-{% for tee_entry in tees_data %}
-  {% set block = tee_entry.block %}
-  {% set tee_val = block.tee_number.value %}
+{# Um card por horário, com colunas para cada tee #}
+{% for time_entry in time_slots %}
+<div class="card border-0 shadow-sm mb-3">
 
-  {# Cores por tee: #1 = verde, #10 = azul — tee_val é string ("1" ou "10") #}
-  {% if tee_val == "1" %}
-    {% set tee_color = "success" %}
-    {% set tee_bg = "#198754" %}
-    {% set tee_light = "success" %}
-    {% set tee_border = "border-success" %}
-    {% set tee_header_bg = "bg-success" %}
-  {% else %}
-    {% set tee_color = "primary" %}
-    {% set tee_bg = "#0d6efd" %}
-    {% set tee_light = "primary" %}
-    {% set tee_border = "border-primary" %}
-    {% set tee_header_bg = "bg-primary" %}
-  {% endif %}
-
-  <div class="card border-0 shadow mb-4" style="border-top: 4px solid {{ tee_bg }} !important;">
-    <!-- Cabeçalho do Tee -->
-    <div class="card-header {{ tee_header_bg }} text-white d-flex justify-content-between align-items-center py-2">
-      <div class="d-flex align-items-center gap-2">
-        <i class="bi bi-flag-fill fs-5"></i>
-        <span class="fs-5 fw-bold">Tee #{{ tee_val }}</span>
-      </div>
-      {% if tee_entry.is_blocked %}
-        <span class="badge bg-warning text-dark"><i class="bi bi-lock-fill me-1"></i>Bloqueado</span>
-      {% else %}
-        <small class="opacity-75">
-          {{ block.start_time | time }} – {{ block.end_time | time }}
-          &nbsp;·&nbsp;{{ tee_entry.slots | length }} horários
-        </small>
+  {# Linha de horário #}
+  <div class="card-header bg-white border-bottom py-2 px-3">
+    <span class="fs-5 fw-bold">{{ time_entry.datetime | time }}</span>
+    {# Resumo de jogadores por tee #}
+    {% for tee_info in time_entry.tees %}
+      {% set tee_val = tee_info.tee_number.value %}
+      {% if tee_val == "1" %}{% set tc = "success" %}{% else %}{% set tc = "primary" %}{% endif %}
+      {% if not tee_info.is_blocked and tee_info.slot %}
+        {% set accepted = namespace(n=0) %}
+        {% for g in tee_info.groups %}
+          {% for m in g.members %}
+            {% if m.status == RequestStatus.ACCEPTED %}{% set accepted.n = accepted.n + 1 %}{% endif %}
+          {% endfor %}
+        {% endfor %}
+        {% if accepted.n > 0 %}
+          <span class="badge bg-{{ tc }} bg-opacity-10 text-{{ tc }} border border-{{ tc }} ms-2">
+            <i class="bi bi-flag-fill me-1"></i>Tee #{{ tee_val }}
+            &nbsp;<i class="bi bi-people-fill ms-1"></i>{{ accepted.n }}
+          </span>
+        {% endif %}
       {% endif %}
-    </div>
+    {% endfor %}
+  </div>
 
-    {% if tee_entry.is_blocked %}
-      <div class="card-body py-3">
-        <span class="text-muted">
-          <i class="bi bi-lock me-1"></i>
-          {% if block.block_reason %}{{ block.block_reason }}{% else %}Tee bloqueado para esta data.{% endif %}
-        </span>
-      </div>
-    {% elif not tee_entry.slots %}
-      <div class="card-body py-3">
-        <span class="text-muted small"><i class="bi bi-clock me-1"></i>Sem horários disponíveis.</span>
-      </div>
-    {% else %}
-      <div class="card-body p-0">
-        {% for item in tee_entry.slots %}
-          {% set slot = item.slot %}
-          {% set groups = item.groups %}
-          <div class="border-bottom px-3 py-3 {% if not loop.last %}mb-0{% endif %}">
-            <!-- Linha de horário -->
+  <div class="card-body p-2">
+    <div class="row g-2">
+
+      {% for tee_info in time_entry.tees %}
+        {% set tee_val = tee_info.tee_number.value %}
+        {% if tee_val == "1" %}{% set tc = "success" %}{% else %}{% set tc = "primary" %}{% endif %}
+
+        <div class="col-md-6">
+          <div class="rounded border border-{{ tc }} border-opacity-50 p-2 h-100">
+
+            {# Cabeçalho do tee #}
             <div class="d-flex justify-content-between align-items-center mb-2">
-              <div>
-                <span class="fs-5 fw-semibold">{{ slot.slot_datetime | time }}</span>
-                {% set accepted_count = namespace(n=0) %}
-                {% for g in groups %}
-                  {% for m in g.members %}
-                    {% if m.status == RequestStatus.ACCEPTED %}
-                      {% set accepted_count.n = accepted_count.n + 1 %}
-                    {% endif %}
-                  {% endfor %}
-                {% endfor %}
-                {% if accepted_count.n > 0 %}
-                  <span class="badge bg-{{ tee_light }} bg-opacity-10 text-{{ tee_light }} border border-{{ tee_light }} ms-2">
-                    <i class="bi bi-people-fill me-1"></i>{{ accepted_count.n }} jogador{{ 'es' if accepted_count.n != 1 }}
-                  </span>
-                {% endif %}
-              </div>
-              {% if user_in_day and not item.user_in_slot %}
-                <span class="text-muted small"><i class="bi bi-check2-circle me-1"></i>Você já tem horário neste dia</span>
-              {% elif item.user_in_slot %}
-                <span class="badge bg-{{ tee_light }}"><i class="bi bi-check-circle me-1"></i>Você está aqui</span>
-              {% elif not user_in_day %}
-                <a href="/groups/new/{{ slot.id }}" class="btn btn-sm btn-{{ tee_light }}">
+              <span class="badge bg-{{ tc }} fs-6 px-3 py-2">
+                <i class="bi bi-flag-fill me-1"></i>Tee #{{ tee_val }}
+              </span>
+
+              {% if tee_info.is_blocked %}
+                <span class="badge bg-warning text-dark">
+                  <i class="bi bi-lock-fill me-1"></i>Bloqueado
+                </span>
+              {% elif tee_info.user_in_slot %}
+                <span class="badge bg-{{ tc }}">
+                  <i class="bi bi-check-circle me-1"></i>Você está aqui
+                </span>
+              {% elif user_in_day %}
+                <span class="text-muted small">já tem horário hoje</span>
+              {% elif tee_info.slot %}
+                <a href="/groups/new/{{ tee_info.slot.id }}" class="btn btn-sm btn-{{ tc }}">
                   <i class="bi bi-plus-circle me-1"></i>Criar Grupo
                 </a>
               {% endif %}
             </div>
 
-            <!-- Grupos neste slot -->
-            {% if groups %}
-              <div class="row g-2">
-                {% for group in groups %}
-                <div class="col-md-6">
-                  <div class="card border {{ tee_border }} border-opacity-25">
-                    <div class="card-body py-2 px-3">
-                      <div class="d-flex justify-content-between align-items-center mb-1">
-                        <div>
-                          <i class="bi bi-person-fill text-{{ tee_light }} me-1"></i>
-                          <strong>{{ group.leader.full_name }}</strong>
-                          <small class="text-muted ms-1">(responsável)</small>
-                        </div>
-                        {% if group.status == GroupStatus.OPEN %}
-                          <span class="badge bg-success">Aberto</span>
-                        {% elif group.status == GroupStatus.MIXED %}
-                          <span class="badge bg-warning text-dark">Misto</span>
-                        {% elif group.status == GroupStatus.CLOSED %}
-                          <span class="badge bg-secondary">Fechado</span>
-                        {% elif group.status == GroupStatus.FULL %}
-                          <span class="badge bg-danger">Completo</span>
-                        {% endif %}
-                      </div>
-                      <div class="mb-1">
-                        {% for m in group.members %}
-                          {% if m.status == RequestStatus.ACCEPTED %}
-                            <span class="badge bg-light text-dark border me-1">
-                              <i class="bi bi-person me-1"></i>{{ m.user.full_name.split()[0] }}
-                              {% if m.user.hcp_index is not none %}<small>({{ m.user.hcp_index }})</small>{% endif %}
-                            </span>
-                          {% endif %}
-                        {% endfor %}
-                      </div>
-                      {% if group.notes %}
-                        <small class="text-muted"><i class="bi bi-chat-text me-1"></i>{{ group.notes }}</small>
+            {# Grupos neste tee/horário #}
+            {% if tee_info.is_blocked %}
+              <p class="text-muted small mb-0">
+                {% if tee_info.block_reason %}{{ tee_info.block_reason }}{% else %}Tee bloqueado.{% endif %}
+              </p>
+            {% elif tee_info.groups %}
+              {% for group in tee_info.groups %}
+              <div class="card border mb-2">
+                <div class="card-body py-2 px-3">
+                  <div class="d-flex justify-content-between align-items-center mb-1">
+                    <div>
+                      <i class="bi bi-person-fill text-{{ tc }} me-1"></i>
+                      <strong>{{ group.leader.full_name }}</strong>
+                      <small class="text-muted ms-1">(responsável)</small>
+                    </div>
+                    {% if group.status == GroupStatus.OPEN %}
+                      <span class="badge bg-success">Aberto</span>
+                    {% elif group.status == GroupStatus.MIXED %}
+                      <span class="badge bg-warning text-dark">Misto</span>
+                    {% elif group.status == GroupStatus.CLOSED %}
+                      <span class="badge bg-secondary">Fechado</span>
+                    {% elif group.status == GroupStatus.FULL %}
+                      <span class="badge bg-danger">Completo</span>
+                    {% endif %}
+                  </div>
+                  <div class="mb-1">
+                    {% for m in group.members %}
+                      {% if m.status == RequestStatus.ACCEPTED %}
+                        <span class="badge bg-light text-dark border me-1">
+                          <i class="bi bi-person me-1"></i>{{ m.user.full_name.split()[0] }}
+                          {% if m.user.hcp_index is not none %}<small>({{ m.user.hcp_index }})</small>{% endif %}
+                        </span>
                       {% endif %}
-                      <div class="d-flex justify-content-between align-items-center mt-2">
-                        <small class="text-muted">
-                          <i class="bi bi-people me-1"></i>{{ group.current_size }}/{{ group.max_players }} vagas
-                        </small>
-                        <div class="d-flex gap-1">
-                          {% if not item.user_in_slot and not user_in_day and not group.is_full
-                                and group.status in [GroupStatus.OPEN, GroupStatus.MIXED]
-                                and group.leader_id != user.id %}
-                            <a href="/requests/new/{{ group.id }}" class="btn btn-sm btn-outline-{{ tee_light }}">
-                              <i class="bi bi-send me-1"></i>Solicitar entrada
-                            </a>
-                          {% endif %}
-                          {% if group.leader_id == user.id or user.role.value == 'admin' %}
-                            <a href="/groups/{{ group.id }}" class="btn btn-sm btn-outline-secondary">
-                              <i class="bi bi-pencil"></i>
-                            </a>
-                          {% endif %}
-                        </div>
-                      </div>
+                    {% endfor %}
+                  </div>
+                  {% if group.notes %}
+                    <small class="text-muted"><i class="bi bi-chat-text me-1"></i>{{ group.notes }}</small>
+                  {% endif %}
+                  <div class="d-flex justify-content-between align-items-center mt-2">
+                    <small class="text-muted">
+                      <i class="bi bi-people me-1"></i>{{ group.current_size }}/{{ group.max_players }} vagas
+                    </small>
+                    <div class="d-flex gap-1">
+                      {% if not tee_info.user_in_slot and not user_in_day and not group.is_full
+                            and group.status in [GroupStatus.OPEN, GroupStatus.MIXED]
+                            and group.leader_id != user.id %}
+                        <a href="/requests/new/{{ group.id }}" class="btn btn-sm btn-outline-{{ tc }}">
+                          <i class="bi bi-send me-1"></i>Solicitar entrada
+                        </a>
+                      {% endif %}
+                      {% if group.leader_id == user.id or user.role.value == 'admin' %}
+                        <a href="/groups/{{ group.id }}" class="btn btn-sm btn-outline-secondary">
+                          <i class="bi bi-pencil"></i>
+                        </a>
+                      {% endif %}
                     </div>
                   </div>
                 </div>
-                {% endfor %}
               </div>
+              {% endfor %}
             {% else %}
-              <span class="text-muted small"><i class="bi bi-person-dash me-1"></i>Nenhum grupo formado ainda.</span>
+              <p class="text-muted small mb-0">
+                <i class="bi bi-person-dash me-1"></i>Nenhum grupo formado ainda.
+              </p>
             {% endif %}
+
           </div>
-        {% endfor %}
-      </div>
-    {% endif %}
+        </div>
+      {% endfor %}
+
+    </div>
   </div>
+</div>
 {% endfor %}
 {% endblock %}

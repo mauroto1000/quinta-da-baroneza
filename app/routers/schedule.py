@@ -105,53 +105,68 @@ def schedule_day(day_date: str, request: Request, db: Session = Depends(get_db))
         .all()
     )
 
-    # Agrupa por tee — cada tee vira uma seção independente
-    tees_data = []
+    # Indexa slots por (slot_datetime, tee_number) para montar visão por horário
+    slot_map = {}  # (datetime, tee_number) -> {slot, groups, user_in_slot}
+    all_datetimes = set()
+
     for block in blocks:
-        tee_entry = {
-            "block": block,
-            "is_blocked": block.is_blocked,
-            "slots": [],
-        }
-        if not block.is_blocked:
-            slots = (
-                db.query(models.TeeSlot)
-                .filter(models.TeeSlot.schedule_block_id == block.id)
-                .order_by(models.TeeSlot.slot_datetime)
+        if block.is_blocked:
+            continue
+        slots = (
+            db.query(models.TeeSlot)
+            .filter(
+                models.TeeSlot.schedule_block_id == block.id,
+                models.TeeSlot.is_blocked == False,
+            )
+            .order_by(models.TeeSlot.slot_datetime)
+            .all()
+        )
+        for slot in slots:
+            all_datetimes.add(slot.slot_datetime)
+            groups = (
+                db.query(models.Group)
+                .filter(models.Group.tee_slot_id == slot.id)
                 .all()
             )
-            for slot in slots:
-                if slot.is_blocked:
-                    continue
-                groups = (
-                    db.query(models.Group)
-                    .filter(models.Group.tee_slot_id == slot.id)
-                    .all()
-                )
-                user_in_slot = any(
-                    m.user_id == user.id and m.status == models.RequestStatus.ACCEPTED
-                    for g in groups
-                    for m in g.members
-                )
-                user_in_day = any(
-                    m.user_id == user.id and m.status == models.RequestStatus.ACCEPTED
-                    for t in tee_entry["slots"]
-                    for g in t["groups"]
-                    for m in g.members
-                ) or user_in_slot
-                tee_entry["slots"].append({
-                    "slot": slot,
-                    "groups": groups,
-                    "user_in_slot": user_in_slot,
-                })
-        tees_data.append(tee_entry)
+            user_in_slot = any(
+                m.user_id == user.id and m.status == models.RequestStatus.ACCEPTED
+                for g in groups
+                for m in g.members
+            )
+            slot_map[(slot.slot_datetime, block.tee_number)] = {
+                "slot": slot,
+                "groups": groups,
+                "user_in_slot": user_in_slot,
+            }
 
-    # Verifica se usuário já está em algum slot do dia
-    user_in_day = any(
-        s["user_in_slot"]
-        for tee in tees_data
-        for s in tee["slots"]
-    )
+    user_in_day = any(v["user_in_slot"] for v in slot_map.values())
+
+    # Monta lista de horários, cada um com uma entrada por tee
+    time_slots = []
+    for dt in sorted(all_datetimes):
+        tee_entries = []
+        for block in blocks:
+            key = (dt, block.tee_number)
+            if block.is_blocked:
+                tee_entries.append({
+                    "tee_number": block.tee_number,
+                    "slot": None,
+                    "groups": [],
+                    "user_in_slot": False,
+                    "is_blocked": True,
+                    "block_reason": block.block_reason,
+                })
+            elif key in slot_map:
+                entry = slot_map[key]
+                tee_entries.append({
+                    "tee_number": block.tee_number,
+                    "slot": entry["slot"],
+                    "groups": entry["groups"],
+                    "user_in_slot": entry["user_in_slot"],
+                    "is_blocked": False,
+                    "block_reason": None,
+                })
+        time_slots.append({"datetime": dt, "tees": tee_entries})
 
     return templates.TemplateResponse(
         "schedule/day.html",
@@ -159,7 +174,8 @@ def schedule_day(day_date: str, request: Request, db: Session = Depends(get_db))
             "request": request,
             "user": user,
             "selected_date": selected_date,
-            "tees_data": tees_data,
+            "blocks": blocks,
+            "time_slots": time_slots,
             "user_in_day": user_in_day,
             "GroupStatus": models.GroupStatus,
             "RequestStatus": models.RequestStatus,
