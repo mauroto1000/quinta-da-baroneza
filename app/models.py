@@ -256,4 +256,8 @@ DEFAULT_CONFIGS = {
     "evolution_instance": ("", "Nome da instância na Evolution API"),
     "club_name": ("Quinta da Baroneza Golfe Clube", "Nome do clube"),
     "app_base_url": ("", "URL base da aplicação (ex: https://meusite.pythonanywhere.com)"),
+    "default_start_time": ("07:00", "Horário padrão de início das saídas (HH:MM)"),
+    "default_end_time": ("17:00", "Horário padrão de término das saídas (HH:MM)"),
+    "default_tees": ("1,10", "Tees ativos por padrão (1, 10 ou 1,10)"),
+    "tee_interval_minutes": ("10", "Intervalo padrão entre saídas (minutos)"),
 }

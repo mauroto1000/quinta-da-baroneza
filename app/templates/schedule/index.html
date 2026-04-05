@@ -8,14 +8,11 @@
 
 <div class="row g-3">
 {% for day in dates %}
-  {% set has_blocks = day.blocks|length > 0 %}
   <div class="col-6 col-md-4 col-lg-3">
     <a href="/schedule/day/{{ day.date.isoformat() }}" class="text-decoration-none">
-      <div class="card h-100 border-0 shadow-sm {% if not has_blocks %}opacity-50{% endif %} day-card">
+      <div class="card h-100 border-0 shadow-sm {% if day.all_blocked %}opacity-50{% endif %} day-card">
         <div class="card-body text-center py-3">
-          <div class="text-muted small text-uppercase">
-            {{ day.date.strftime('%a') }}
-          </div>
+          <div class="text-muted small text-uppercase">{{ day.date.strftime('%a') }}</div>
           <div class="fs-3 fw-bold {% if day.date == today %}text-success{% endif %}">
             {{ day.date.day }}
           </div>
@@ -23,17 +20,18 @@
           {% if day.date == today %}
             <span class="badge bg-success mt-1">Hoje</span>
           {% endif %}
-          {% if has_blocks %}
+          {% if day.all_blocked %}
+            <div class="mt-2">
+              <span class="badge bg-danger"><i class="bi bi-lock-fill me-1"></i>Bloqueado</span>
+            </div>
+          {% else %}
             <div class="mt-2">
               {% for block in day.blocks %}
                 <span class="badge bg-light text-dark border">
                   <i class="bi bi-flag-fill text-success me-1"></i>Tee #{{ block.tee_number.value }}
-                  {% if block.is_blocked %}<i class="bi bi-lock-fill text-danger ms-1"></i>{% endif %}
                 </span>
               {% endfor %}
             </div>
-          {% else %}
-            <div class="text-muted small mt-2"><i class="bi bi-calendar-x me-1"></i>Sem agenda</div>
           {% endif %}
         </div>
       </div>

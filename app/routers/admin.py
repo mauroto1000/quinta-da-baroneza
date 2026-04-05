@@ -202,17 +202,31 @@ def delete_player(player_id: int, request: Request, db: Session = Depends(get_db
 # ---------------------------------------------------------------------------
 @router.get("/schedule", response_class=HTMLResponse)
 def admin_schedule(request: Request, db: Session = Depends(get_db)):
+    from app.services.slot_generator import ensure_slots_for_window
+    from app.deps import get_system_config
     user = require_admin(request, db)
     today = date.today()
+    window = int(get_system_config(db, "booking_window_days", "14"))
+
+    # Garante que os slots existam
+    ensure_slots_for_window(db, window)
+
     blocks = (
         db.query(models.ScheduleBlock)
         .filter(models.ScheduleBlock.date >= today)
         .order_by(models.ScheduleBlock.date, models.ScheduleBlock.tee_number)
         .all()
     )
+
+    # Agrupa por data
+    from itertools import groupby
+    days = []
+    for d, grp in groupby(blocks, key=lambda b: b.date):
+        days.append({"date": d, "blocks": list(grp)})
+
     return templates.TemplateResponse(
         "admin/schedule.html",
-        {"request": request, "user": user, "blocks": blocks, "today": today,
+        {"request": request, "user": user, "days": days, "today": today,
          "TeeNumber": models.TeeNumber, "error": None},
     )
 
@@ -392,6 +406,10 @@ def save_config(
     request_timeout_hours: str = Form("1"),
     cancel_deadline_hours: str = Form("24"),
     max_groups_per_slot: str = Form("6"),
+    tee_interval_minutes: str = Form("10"),
+    default_start_time: str = Form("07:00"),
+    default_end_time: str = Form("17:00"),
+    default_tees: str = Form("1,10"),
     evolution_api_url: str = Form(""),
     evolution_api_key: str = Form(""),
     evolution_instance: str = Form(""),
@@ -405,6 +423,10 @@ def save_config(
         "request_timeout_hours": request_timeout_hours.strip(),
         "cancel_deadline_hours": cancel_deadline_hours.strip(),
         "max_groups_per_slot": max_groups_per_slot.strip(),
+        "tee_interval_minutes": tee_interval_minutes.strip(),
+        "default_start_time": default_start_time.strip(),
+        "default_end_time": default_end_time.strip(),
+        "default_tees": default_tees.strip(),
         "evolution_api_url": evolution_api_url.strip(),
         "evolution_api_key": evolution_api_key.strip(),
         "evolution_instance": evolution_instance.strip(),

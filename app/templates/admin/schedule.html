@@ -3,106 +3,102 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4">
   <h4 class="mb-0"><i class="bi bi-calendar-plus me-2 text-success"></i>Gerenciar Agenda</h4>
-  <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#newBlockModal">
-    <i class="bi bi-plus-circle me-1"></i>Novo Bloco de Horários
-  </button>
+</div>
+
+<div class="alert alert-info small">
+  <i class="bi bi-info-circle me-1"></i>
+  Os horários são gerados automaticamente (07h–17h, a cada 10 min, Tees #1 e #10) com base nas
+  <a href="/admin/config" class="alert-link">configurações padrão</a>.
+  Use os botões abaixo para <strong>bloquear</strong> dias ou tees específicos (torneios, manutenção, etc).
 </div>
 
 {% if error %}
 <div class="alert alert-danger">{{ error }}</div>
 {% endif %}
 
-{% if not blocks %}
-<div class="alert alert-info"><i class="bi bi-info-circle me-1"></i>Nenhum bloco de horários configurado.</div>
-{% endif %}
-
 <div class="table-responsive">
   <table class="table table-hover align-middle">
     <thead class="table-light">
       <tr>
-        <th>Data</th><th>Tee</th><th>Início</th><th>Término</th><th>Intervalo</th><th>Status</th><th>Slots</th><th></th>
+        <th>Data</th>
+        <th>Tee</th>
+        <th>Horário</th>
+        <th>Slots</th>
+        <th>Status</th>
+        <th>Motivo</th>
+        <th></th>
       </tr>
     </thead>
     <tbody>
-      {% for block in blocks %}
-      <tr class="{% if block.is_blocked %}table-warning{% endif %}">
-        <td>{{ block.date | date }}</td>
-        <td><span class="badge bg-success">Tee #{{ block.tee_number.value }}</span></td>
-        <td>{{ block.start_time | time }}</td>
-        <td>{{ block.end_time | time }}</td>
-        <td>{{ block.interval_minutes }} min</td>
-        <td>
-          {% if block.is_blocked %}
-            <span class="badge bg-danger"><i class="bi bi-lock-fill me-1"></i>Bloqueado</span>
-            {% if block.block_reason %}<small class="text-muted ms-1">{{ block.block_reason }}</small>{% endif %}
-          {% else %}
-            <span class="badge bg-success">Ativo</span>
+      {% for day in days %}
+        {% for block in day.blocks %}
+        <tr class="{% if block.is_blocked %}table-warning{% endif %}">
+          {% if loop.first %}
+          <td rowspan="{{ day.blocks|length }}" class="fw-semibold align-middle">
+            {{ day.date | date }}
+          </td>
           {% endif %}
-        </td>
-        <td>{{ block.tee_slots|length }}</td>
-        <td>
-          <form method="post" action="/admin/schedule/{{ block.id }}/toggle-block" class="d-inline">
-            <input type="hidden" name="block_reason" value="{{ block.block_reason or '' }}">
-            <button type="submit" class="btn btn-sm {% if block.is_blocked %}btn-outline-success{% else %}btn-outline-warning{% endif %}">
-              {% if block.is_blocked %}<i class="bi bi-unlock"></i>{% else %}<i class="bi bi-lock"></i>{% endif %}
+          <td><span class="badge bg-success">Tee #{{ block.tee_number.value }}</span></td>
+          <td><small>{{ block.start_time | time }} – {{ block.end_time | time }}</small></td>
+          <td>{{ block.tee_slots|length }}</td>
+          <td>
+            {% if block.is_blocked %}
+              <span class="badge bg-danger"><i class="bi bi-lock-fill me-1"></i>Bloqueado</span>
+            {% else %}
+              <span class="badge bg-success">Ativo</span>
+            {% endif %}
+          </td>
+          <td><small class="text-muted">{{ block.block_reason or '—' }}</small></td>
+          <td>
+            <button class="btn btn-sm {% if block.is_blocked %}btn-outline-success{% else %}btn-outline-danger{% endif %}"
+              data-bs-toggle="modal" data-bs-target="#blockModal{{ block.id }}">
+              {% if block.is_blocked %}
+                <i class="bi bi-unlock me-1"></i>Desbloquear
+              {% else %}
+                <i class="bi bi-lock me-1"></i>Bloquear
+              {% endif %}
             </button>
-          </form>
-          <form method="post" action="/admin/schedule/{{ block.id }}/delete" class="d-inline"
-            onsubmit="return confirm('Excluir este bloco e todos os horários? Grupos existentes também serão removidos.')">
-            <button type="submit" class="btn btn-sm btn-outline-danger">
-              <i class="bi bi-trash"></i>
-            </button>
-          </form>
-        </td>
+
+            <!-- Modal bloqueio -->
+            <div class="modal fade" id="blockModal{{ block.id }}" tabindex="-1">
+              <div class="modal-dialog modal-sm">
+                <div class="modal-content">
+                  <form method="post" action="/admin/schedule/{{ block.id }}/toggle-block">
+                    <div class="modal-header">
+                      <h6 class="modal-title">
+                        {% if block.is_blocked %}Desbloquear{% else %}Bloquear{% endif %}
+                        Tee #{{ block.tee_number.value }} – {{ day.date | date }}
+                      </h6>
+                      <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    {% if not block.is_blocked %}
+                    <div class="modal-body">
+                      <label class="form-label">Motivo</label>
+                      <input type="text" name="block_reason" class="form-control"
+                        placeholder="Ex: Torneio, Manutenção..." value="{{ block.block_reason or '' }}">
+                    </div>
+                    {% else %}
+                    <input type="hidden" name="block_reason" value="">
+                    {% endif %}
+                    <div class="modal-footer">
+                      <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cancelar</button>
+                      <button type="submit" class="btn btn-sm {% if block.is_blocked %}btn-success{% else %}btn-danger{% endif %}">
+                        Confirmar
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      {% else %}
+      <tr>
+        <td colspan="7" class="text-center text-muted py-4">Carregando horários...</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
-</div>
-
-<!-- New Block Modal -->
-<div class="modal fade" id="newBlockModal" tabindex="-1">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <form method="post" action="/admin/schedule/new">
-        <div class="modal-header">
-          <h5 class="modal-title">Novo Bloco de Horários</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body">
-          <div class="mb-3">
-            <label class="form-label">Data <span class="text-danger">*</span></label>
-            <input type="date" name="block_date" class="form-control" required
-              min="{{ today.isoformat() }}">
-          </div>
-          <div class="mb-3">
-            <label class="form-label">Tee de Saída <span class="text-danger">*</span></label>
-            <select name="tee_number" class="form-select" required>
-              <option value="1">Tee #1</option>
-              <option value="10">Tee #10</option>
-            </select>
-          </div>
-          <div class="row">
-            <div class="col">
-              <label class="form-label">Início <span class="text-danger">*</span></label>
-              <input type="time" name="start_time" class="form-control" value="07:00" required>
-            </div>
-            <div class="col">
-              <label class="form-label">Término <span class="text-danger">*</span></label>
-              <input type="time" name="end_time" class="form-control" value="12:00" required>
-            </div>
-          </div>
-          <div class="mt-3">
-            <label class="form-label">Intervalo entre saídas (minutos)</label>
-            <input type="number" name="interval_minutes" class="form-control" value="10" min="5" max="60">
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
-          <button type="submit" class="btn btn-success">Criar Horários</button>
-        </div>
-      </form>
-    </div>
-  </div>
 </div>
 {% endblock %}

@@ -37,6 +37,31 @@
         </div>
       </div>
 
+        <div class="col-md-4">
+          <label class="form-label">Intervalo entre saídas (minutos)</label>
+          <input type="number" name="tee_interval_minutes" class="form-control" min="5" max="60"
+            value="{{ configs.get('tee_interval_minutes').value if configs.get('tee_interval_minutes') else '10' }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Horário de início padrão</label>
+          <input type="time" name="default_start_time" class="form-control"
+            value="{{ configs.get('default_start_time').value if configs.get('default_start_time') else '07:00' }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Horário de término padrão</label>
+          <input type="time" name="default_end_time" class="form-control"
+            value="{{ configs.get('default_end_time').value if configs.get('default_end_time') else '17:00' }}">
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Tees ativos por padrão</label>
+          <select name="default_tees" class="form-select">
+            <option value="1,10" {% if configs.get('default_tees') and configs.get('default_tees').value == '1,10' %}selected{% endif %}>Tee #1 e Tee #10</option>
+            <option value="1" {% if configs.get('default_tees') and configs.get('default_tees').value == '1' %}selected{% endif %}>Somente Tee #1</option>
+            <option value="10" {% if configs.get('default_tees') and configs.get('default_tees').value == '10' %}selected{% endif %}>Somente Tee #10</option>
+          </select>
+        </div>
+      </div>
+
       <hr>
       <h6 class="text-muted text-uppercase small mb-3">Configurações Gerais</h6>
       <div class="row g-3 mb-4">
