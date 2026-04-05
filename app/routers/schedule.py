@@ -105,41 +105,53 @@ def schedule_day(day_date: str, request: Request, db: Session = Depends(get_db))
         .all()
     )
 
-    slots_data = []
+    # Agrupa por tee — cada tee vira uma seção independente
+    tees_data = []
     for block in blocks:
-        if block.is_blocked:
-            slots_data.append({
-                "block_blocked": True,
-                "block": block,
-                "slots": [],
-            })
-            continue
-
-        slots = (
-            db.query(models.TeeSlot)
-            .filter(models.TeeSlot.schedule_block_id == block.id)
-            .order_by(models.TeeSlot.slot_datetime)
-            .all()
-        )
-        for slot in slots:
-            if slot.is_blocked:
-                continue
-            groups = (
-                db.query(models.Group)
-                .filter(models.Group.tee_slot_id == slot.id)
+        tee_entry = {
+            "block": block,
+            "is_blocked": block.is_blocked,
+            "slots": [],
+        }
+        if not block.is_blocked:
+            slots = (
+                db.query(models.TeeSlot)
+                .filter(models.TeeSlot.schedule_block_id == block.id)
+                .order_by(models.TeeSlot.slot_datetime)
                 .all()
             )
-            user_in_slot = any(
-                m.user_id == user.id and m.status == models.RequestStatus.ACCEPTED
-                for g in groups
-                for m in g.members
-            )
-            slots_data.append({
-                "block_blocked": False,
-                "slot": slot,
-                "groups": groups,
-                "user_in_slot": user_in_slot,
-            })
+            for slot in slots:
+                if slot.is_blocked:
+                    continue
+                groups = (
+                    db.query(models.Group)
+                    .filter(models.Group.tee_slot_id == slot.id)
+                    .all()
+                )
+                user_in_slot = any(
+                    m.user_id == user.id and m.status == models.RequestStatus.ACCEPTED
+                    for g in groups
+                    for m in g.members
+                )
+                user_in_day = any(
+                    m.user_id == user.id and m.status == models.RequestStatus.ACCEPTED
+                    for t in tee_entry["slots"]
+                    for g in t["groups"]
+                    for m in g.members
+                ) or user_in_slot
+                tee_entry["slots"].append({
+                    "slot": slot,
+                    "groups": groups,
+                    "user_in_slot": user_in_slot,
+                })
+        tees_data.append(tee_entry)
+
+    # Verifica se usuário já está em algum slot do dia
+    user_in_day = any(
+        s["user_in_slot"]
+        for tee in tees_data
+        for s in tee["slots"]
+    )
 
     return templates.TemplateResponse(
         "schedule/day.html",
@@ -147,8 +159,8 @@ def schedule_day(day_date: str, request: Request, db: Session = Depends(get_db))
             "request": request,
             "user": user,
             "selected_date": selected_date,
-            "blocks": blocks,
-            "slots_data": slots_data,
+            "tees_data": tees_data,
+            "user_in_day": user_in_day,
             "GroupStatus": models.GroupStatus,
             "RequestStatus": models.RequestStatus,
         },
