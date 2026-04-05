@@ -1,4 +1,5 @@
 from typing import Optional
+from datetime import datetime
 from fastapi import Request, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.database import get_db
@@ -47,3 +48,28 @@ def require_admin(request: Request, db: Session = Depends(get_db)) -> models.Use
 def get_system_config(db: Session, key: str, default: str = "") -> str:
     cfg = db.query(models.SystemConfig).filter(models.SystemConfig.key == key).first()
     return cfg.value if cfg else default
+
+
+def get_valid_authorization(db: Session, user: models.User) -> models.BookingAuthorization | None:
+    """Retorna a primeira autorização válida do jogador, preferindo permanente."""
+    authorizations = (
+        db.query(models.BookingAuthorization)
+        .filter(
+            models.BookingAuthorization.user_id == user.id,
+            models.BookingAuthorization.is_active == True,
+            models.BookingAuthorization.used_at == None,
+        )
+        .order_by(models.BookingAuthorization.auth_type)  # permanent < single alfabeticamente
+        .all()
+    )
+    for auth in authorizations:
+        if auth.is_valid:
+            return auth
+    return None
+
+
+def consume_authorization(db: Session, auth: models.BookingAuthorization) -> None:
+    """Consome uma autorização avulsa. Permanentes não são consumidas."""
+    if auth.auth_type == models.AuthorizationType.SINGLE:
+        auth.used_at = datetime.utcnow()
+        db.commit()

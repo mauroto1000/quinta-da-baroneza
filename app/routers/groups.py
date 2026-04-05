@@ -5,7 +5,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app import models
-from app.deps import get_current_user, require_login
+from app.deps import get_current_user, require_login, get_valid_authorization, consume_authorization
 from app.services import notifications
 
 router = APIRouter(prefix="/groups", tags=["groups"])
@@ -84,6 +84,19 @@ def create_group(
     if existing:
         return RedirectResponse(f"/schedule/day/{slot.slot_datetime.date().isoformat()}", status_code=302)
 
+    # Verificar autorização (admins estão sempre autorizados)
+    if user.role != models.UserRole.ADMIN:
+        auth = get_valid_authorization(db, user)
+        if not auth:
+            return templates.TemplateResponse(
+                "groups/new.html",
+                {
+                    "request": request, "user": user, "slot": slot,
+                    "error": "Você não possui autorização de agendamento. Procure a secretaria do clube.",
+                    "GroupStatus": models.GroupStatus,
+                },
+            )
+
     group = models.Group(
         tee_slot_id=slot_id,
         leader_id=user.id,
@@ -100,8 +113,14 @@ def create_group(
         status=models.RequestStatus.ACCEPTED,
     )
     db.add(membership)
-    db.commit()
 
+    # Consumir autorização avulsa
+    if user.role != models.UserRole.ADMIN:
+        auth = get_valid_authorization(db, user)
+        if auth:
+            consume_authorization(db, auth)
+
+    db.commit()
     return RedirectResponse(f"/groups/{group.id}", status_code=302)
 
 

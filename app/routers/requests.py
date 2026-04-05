@@ -5,7 +5,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 from app.database import get_db
 from app import models
-from app.deps import get_current_user
+from app.deps import get_current_user, get_valid_authorization, consume_authorization
 from app.services import notifications, tasks as task_service
 
 router = APIRouter(prefix="/requests", tags=["requests"])
@@ -110,6 +110,12 @@ def submit_request(
         g = db.query(models.Group).filter(models.Group.id == gid).first()
         if not g:
             return render_error("Grupo inválido selecionado.")
+
+    # Verificar autorização (admins estão sempre autorizados)
+    if user.role != models.UserRole.ADMIN:
+        auth = get_valid_authorization(db, user)
+        if not auth:
+            return render_error("Você não possui autorização de agendamento. Procure a secretaria do clube.")
 
     # Check user not already in a group on this day
     existing_membership = (

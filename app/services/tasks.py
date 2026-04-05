@@ -117,6 +117,14 @@ def process_step_response(db: Session, step: models.JoinRequestStep, accepted: b
         )
         db.add(membership)
 
+        # Consumir autorização avulsa do solicitante
+        from app.deps import get_valid_authorization, consume_authorization
+        requester = join_request.requester
+        if requester.role != models.UserRole.ADMIN:
+            auth = get_valid_authorization(db, requester)
+            if auth:
+                consume_authorization(db, auth)
+
         # Update group status if full
         if group.is_full:
             group.status = models.GroupStatus.FULL

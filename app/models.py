@@ -13,6 +13,11 @@ class UserRole(str, PyEnum):
     ADMIN = "admin"
 
 
+class AuthorizationType(str, PyEnum):
+    SINGLE = "single"        # um agendamento, consumida ao usar
+    PERMANENT = "permanent"  # sócio ou autorização irrestrita
+
+
 class GroupStatus(str, PyEnum):
     OPEN = "open"        # qualquer um entra sem aprovação
     MIXED = "mixed"      # responsável aprova, mas aceita desconhecidos
@@ -209,6 +214,36 @@ class SystemConfig(Base):
     description = Column(String(300), nullable=True)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     updated_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+
+
+# ---------------------------------------------------------------------------
+# BookingAuthorization — controla quem pode agendar
+# ---------------------------------------------------------------------------
+class BookingAuthorization(Base):
+    __tablename__ = "booking_authorizations"
+
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    auth_type = Column(Enum(AuthorizationType), nullable=False)
+    notes = Column(String(300), nullable=True)       # ex: "Green fee pago em 05/04/2026"
+    is_active = Column(Boolean, default=True, nullable=False)
+    granted_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    granted_at = Column(DateTime, default=datetime.utcnow)
+    expires_at = Column(DateTime, nullable=True)     # None = sem expiração
+    used_at = Column(DateTime, nullable=True)        # preenchido ao consumir (single)
+
+    user = relationship("User", foreign_keys=[user_id], backref="authorizations")
+    admin = relationship("User", foreign_keys=[granted_by])
+
+    @property
+    def is_valid(self) -> bool:
+        if not self.is_active:
+            return False
+        if self.auth_type == AuthorizationType.SINGLE and self.used_at:
+            return False
+        if self.expires_at and self.expires_at < datetime.utcnow():
+            return False
+        return True
 
 
 DEFAULT_CONFIGS = {

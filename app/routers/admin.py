@@ -430,6 +430,77 @@ def save_config(
 
 
 # ---------------------------------------------------------------------------
+# Autorizações de agendamento
+# ---------------------------------------------------------------------------
+@router.get("/authorizations", response_class=HTMLResponse)
+def authorizations_list(request: Request, db: Session = Depends(get_db)):
+    admin = require_admin(request, db)
+    players = db.query(models.User).filter(
+        models.User.role == models.UserRole.PLAYER,
+        models.User.is_active == True,
+    ).order_by(models.User.full_name).all()
+
+    auths = (
+        db.query(models.BookingAuthorization)
+        .order_by(models.BookingAuthorization.granted_at.desc())
+        .limit(100)
+        .all()
+    )
+    return templates.TemplateResponse(
+        "admin/authorizations.html",
+        {
+            "request": request, "user": admin,
+            "players": players, "auths": auths,
+            "AuthorizationType": models.AuthorizationType,
+            "now": datetime.utcnow(),
+            "error": None,
+        },
+    )
+
+
+@router.post("/authorizations/new", response_class=HTMLResponse)
+def create_authorization(
+    request: Request,
+    user_id: int = Form(...),
+    auth_type: str = Form("single"),
+    notes: str = Form(""),
+    expires_at: str = Form(""),
+    db: Session = Depends(get_db),
+):
+    admin = require_admin(request, db)
+
+    expires = None
+    if expires_at.strip():
+        try:
+            expires = datetime.fromisoformat(expires_at.strip())
+        except ValueError:
+            pass
+
+    auth = models.BookingAuthorization(
+        user_id=user_id,
+        auth_type=models.AuthorizationType(auth_type),
+        notes=notes.strip() or None,
+        granted_by=admin.id,
+        expires_at=expires,
+    )
+    db.add(auth)
+    db.commit()
+    return RedirectResponse("/admin/authorizations", status_code=302)
+
+
+@router.post("/authorizations/{auth_id}/revoke", response_class=HTMLResponse)
+def revoke_authorization(auth_id: int, request: Request, db: Session = Depends(get_db)):
+    require_admin(request, db)
+    auth = db.query(models.BookingAuthorization).filter(
+        models.BookingAuthorization.id == auth_id
+    ).first()
+    if auth:
+        auth.is_active = False
+        db.commit()
+    return RedirectResponse("/admin/authorizations", status_code=302)
+
+
+# ---------------------------------------------------------------------------
 # Reports
 # ---------------------------------------------------------------------------
 @router.get("/reports", response_class=HTMLResponse)

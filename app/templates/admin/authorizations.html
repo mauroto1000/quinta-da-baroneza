@@ -1,0 +1,149 @@
+{% extends "base.html" %}
+{% block title %}Autorizações – Admin{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <h4 class="mb-0"><i class="bi bi-shield-check me-2 text-success"></i>Autorizações de Agendamento</h4>
+  <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#newAuthModal">
+    <i class="bi bi-plus-circle me-1"></i>Nova Autorização
+  </button>
+</div>
+
+{% if error %}
+<div class="alert alert-danger">{{ error }}</div>
+{% endif %}
+
+<div class="card border-0 shadow-sm">
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover align-middle mb-0">
+        <thead class="table-light">
+          <tr>
+            <th>Jogador</th>
+            <th>Tipo</th>
+            <th>Observação</th>
+            <th>Concedida em</th>
+            <th>Expira em</th>
+            <th>Usada em</th>
+            <th>Status</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for auth in auths %}
+          <tr class="{% if not auth.is_valid %}opacity-50{% endif %}">
+            <td><strong>{{ auth.user.full_name }}</strong></td>
+            <td>
+              {% if auth.auth_type.value == 'permanent' %}
+                <span class="badge bg-success"><i class="bi bi-infinity me-1"></i>Permanente</span>
+              {% else %}
+                <span class="badge bg-primary"><i class="bi bi-1-circle me-1"></i>Avulso</span>
+              {% endif %}
+            </td>
+            <td><small class="text-muted">{{ auth.notes or '—' }}</small></td>
+            <td><small>{{ auth.granted_at | dt }}</small></td>
+            <td><small>{{ auth.expires_at | dt if auth.expires_at else '—' }}</small></td>
+            <td><small>{{ auth.used_at | dt if auth.used_at else '—' }}</small></td>
+            <td>
+              {% if not auth.is_active %}
+                <span class="badge bg-secondary">Revogada</span>
+              {% elif auth.used_at %}
+                <span class="badge bg-secondary">Utilizada</span>
+              {% elif auth.expires_at and auth.expires_at < now %}
+                <span class="badge bg-warning text-dark">Expirada</span>
+              {% else %}
+                <span class="badge bg-success">Válida</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if auth.is_active and not auth.used_at %}
+              <form method="post" action="/admin/authorizations/{{ auth.id }}/revoke"
+                onsubmit="return confirm('Revogar esta autorização?')">
+                <button type="submit" class="btn btn-sm btn-outline-danger">
+                  <i class="bi bi-x-circle"></i>
+                </button>
+              </form>
+              {% endif %}
+            </td>
+          </tr>
+          {% else %}
+          <tr><td colspan="8" class="text-center text-muted py-4">Nenhuma autorização encontrada.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Modal nova autorização -->
+<div class="modal fade" id="newAuthModal" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form method="post" action="/admin/authorizations/new">
+        <div class="modal-header">
+          <h5 class="modal-title">Nova Autorização</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <div class="mb-3">
+            <label class="form-label">Jogador <span class="text-danger">*</span></label>
+            <select name="user_id" class="form-select" required>
+              <option value="">— Selecione —</option>
+              {% for player in players %}
+              <option value="{{ player.id }}">{{ player.full_name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Tipo <span class="text-danger">*</span></label>
+            <div class="row g-2">
+              <div class="col-6">
+                <div class="form-check border rounded p-3">
+                  <input class="form-check-input" type="radio" name="auth_type" value="single" id="typeSingle" checked>
+                  <label class="form-check-label" for="typeSingle">
+                    <strong><i class="bi bi-1-circle me-1"></i>Avulso</strong><br>
+                    <small class="text-muted">Um agendamento (ex: green fee pago)</small>
+                  </label>
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="form-check border rounded p-3">
+                  <input class="form-check-input" type="radio" name="auth_type" value="permanent" id="typePermanent">
+                  <label class="form-check-label" for="typePermanent">
+                    <strong><i class="bi bi-infinity me-1"></i>Permanente</strong><br>
+                    <small class="text-muted">Sócio ou autorização irrestrita</small>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label">Observação</label>
+            <input type="text" name="notes" class="form-control" maxlength="300"
+              placeholder="Ex: Green fee pago em 05/04/2026">
+          </div>
+          <div class="mb-3" id="expiresField">
+            <label class="form-label">Validade <small class="text-muted">(opcional — deixe em branco para sem expiração)</small></label>
+            <input type="datetime-local" name="expires_at" class="form-control">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button type="submit" class="btn btn-success">Conceder Autorização</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// Oculta campo de expiração para permanente
+document.querySelectorAll('input[name="auth_type"]').forEach(r => {
+  r.addEventListener('change', () => {
+    document.getElementById('expiresField').style.display =
+      r.value === 'permanent' ? 'none' : '';
+  });
+});
+</script>
+{% endblock %}
